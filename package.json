@@ -1,0 +1,48 @@
+{
+  "name": "cascading-downstream-merge",
+  "version": "1.0.0",
+  "description": "GitHub action to automatically merge downstream branches based on semantic versioning",
+  "main": "src/index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "jest",
+    "test:watch": "npm run test -- --watchAll"
+  },
+  "jest": {
+    "testRegex": "(test/.*(test)\\.js)",
+    "collectCoverage": true,
+    "collectCoverageFrom": [
+      "./src/**"
+    ],
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/test/",
+      "/test/tmp/"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "lines": 75
+      }
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ActionsDesk/cascading-downstream-merge.git"
+  },
+  "keywords": [
+    "automerge",
+    "cicd",
+    "bitbucket"
+  ],
+  "author": "jefeish",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ActionsDesk/cascading-downstream-merge/issues"
+  },
+  "homepage": "https://github.com/ActionsDesk/cascading-downstream-merge#readme",
+  "dependencies": {
+    "nodemon": "^2.0.16"
+  }
+}
