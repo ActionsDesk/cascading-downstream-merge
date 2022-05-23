@@ -6,4 +6,4 @@
 
 # Cascading Auto-Merge
 
-This project is the GitHub implementation similar to the [Bitbuckets 'Automatic branch merging'](https://confluence.atlassian.com/bitbucketserver/automatic-branch-merging-776639993.html) feature.
+This project is a GitHub implementation of a `Cascading Auto-Merge` feature, similar to the [Bitbuckets 'Automatic branch merging'](https://confluence.atlassian.com/bitbucketserver/automatic-branch-merging-776639993.html) feature.
