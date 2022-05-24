@@ -3,6 +3,7 @@
 ![coverage](https://img.shields.io/badge/coverage-4.5%25-red)
 ![release](https://img.shields.io/badge/release-1.2-blue)
 ![node](https://img.shields.io/badge/NODE-v3.5-darkgreen)
+[![GitHub Super-Linter](https://github.com/ActionDesk/cascading-downstream-merge/workflows/Lint%20Code%20Base/badge.svg)](https://github.com/marketplace/actions/super-linter)
 
 [:open_file_folder: Documentation Pages](https://actionsdesk.github.io/cascading-downstream-merge/#/)
 
