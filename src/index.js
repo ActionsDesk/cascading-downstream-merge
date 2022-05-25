@@ -16,16 +16,16 @@ import { cascadingBranchMerge } from './cascading-branch-merge';
         console.log(' owner: ' + owner + '\n repo: ' + repo)
         console.log('GITHUB_TOKEN: ' + token)
 
-        cascadingBranchMerge(
-            prefixes,
-            refBranch,
-            headBranch,
-            baseBranch,
-            owner,
-            repo,
-            context,
-            pullNumber
-        )
+        // cascadingBranchMerge(
+        //     prefixes,
+        //     refBranch,
+        //     headBranch,
+        //     baseBranch,
+        //     owner,
+        //     repo,
+        //     context,
+        //     pullNumber
+        // )
         
     } catch (e) {
         console.log(e)
