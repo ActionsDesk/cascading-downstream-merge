@@ -29,24 +29,25 @@ const github = require('@actions/github');
         console.log('pullNumber: ' + pullNumber)
         console.log('headBranch: ' + headBranch)
         console.log('baseBranch: ' + baseBranch)
-        console.log('mergeable: ' + context.payload.pull_request.mergeable)
-        console.log('mergeable_state: ' + context.payload.pull_request.mergeable_state)
 
-        console.log(checkMergability(1, 2))
         console.log(context)
         const res = await getPullRequest(pullNumber, owner, repo, octokit)
-        console.log('res: '+ res)
+        console.log('res: ')
+        console.log(res)
         console.log('mergeable: '+ res.data.mergeable)
         console.log('mergeable_state: '+ res.data.mergeable_state)
+        const repository = {
+            "owner": owner,
+            "repo": repo
+        }
 
         cascadingBranchMerge(
-            prefixes,        // array of prefixes
+            [prefixes],        // array of prefixes
             refBranch,
             headBranch,
             baseBranch,
-            owner,
-            repo,
-            context,
+            repository,
+            octokit,
             pullNumber
         )
         

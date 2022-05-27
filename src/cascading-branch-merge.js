@@ -1,14 +1,3 @@
-
-// RepositoryReference {
-//     owner
-//     repo
-// }
- 
-// HandlerContext {
-//     log: Context['log'],
-//     github: Context['github']
-//     config: Config
-// }
   
 /**
  * @description This class contains the main "Cascading Auto-Merge" code.
@@ -25,7 +14,7 @@
 /**
  * @description support structure for 'getRepoBranchMergeOrder'
  */
-let branch = {
+ let branch = {
   name: '',
   commit: {},
   protected: false,
@@ -42,20 +31,24 @@ let branch = {
  * @param refBranch
  * @param headBranch
  * @param repository
- * @param context
+ * @param octokit
  */
-export async function cascadingBranchMerge(
+async function cascadingBranchMerge(
     prefixes,
     refBranch,
     headBranch,
     baseBranch,
-    owner,
-    repo,
-    context,
+    repository,
+    octokit,
     pullNumber
 ) {
-  const tempRequestObject = { owner, repo, per_page: 100 } 
-  const branches = (await context.github.repos.listBranches(tempRequestObject)).data
+
+  const branches = await octokit.rest.repos.listBranches({
+    owner: repository.owner,
+    repo: repository.repo,
+    per_page: 100
+  }).data;
+
   let mergeListHead = []
   let mergeListBase = []
   let mergeLists = []
@@ -96,7 +89,7 @@ export async function cascadingBranchMerge(
       // CREATE a PR for the next subsequent merge
       // -----------------------------------------------------------------------------------------------------------------
       try {
-        res = await context.github.pulls.create({
+        res = await octokit.rest.pulls.create({
           owner: repository.owner,
           repo: repository.repo,
           base: mergeList[i + 1],
@@ -111,7 +104,7 @@ export async function cascadingBranchMerge(
 
         if (error.status === 422 && error.errors[0].message.startsWith('No commits between')) {
           // create a comment in the HEAD Branch PR
-          await context.github.issues.createComment({
+          await octokit.rest.issues.createComment({
             owner: repository.owner,
             repo: repository.repo,
             issue_number: pullNumber,
@@ -122,7 +115,7 @@ export async function cascadingBranchMerge(
         }
         else if (error.status === 422 && error.errors[0].message.startsWith('A pull request already exists')) {
           // put a comment in the original PR, noting that the cascading failed
-          await context.github.issues.createComment({
+          await octokit.rest.issues.createComment({
             owner: repository.owner,
             repo: repository.repo,
             issue_number: pullNumber,
@@ -132,14 +125,14 @@ export async function cascadingBranchMerge(
         }
         else {
           // put a comment in the original PR, noting that the cascading failed
-          await context.github.issues.createComment({
+          await octokit.rest.issues.createComment({
             owner: repository.owner,
             repo: repository.repo,
             issue_number: pullNumber,
             body: "Tried to create a cascading PR but encountered an issue [" + error.errors[0].message + "]"
           })
           // create an Issue in the Repo. that the cascading failed
-          await context.github.issues.create({
+          await octokit.rest.issues.create({
             owner: repository.owner,
             repo: repository.repo,
             title: "Problem with cascading Auto-Merge [ " + error.errors[0].message + "]",
@@ -151,7 +144,7 @@ export async function cascadingBranchMerge(
       }
 
       // create a comment in the HEAD Branch PR
-      await context.github.issues.createComment({
+      await octokit.rest.issues.createComment({
         owner: repository.owner,
         repo: repository.repo,
         issue_number: pullNumber,
@@ -162,7 +155,7 @@ export async function cascadingBranchMerge(
       // MERGE the PR
       // -----------------------------------------------------------------------------------------------------------------
       try {
-        await context.github.pulls.merge({
+        await octokit.rest.pulls.merge({
           owner: repository.owner,
           repo: repository.repo,
           pull_number: res.data.number
@@ -173,14 +166,14 @@ export async function cascadingBranchMerge(
 
         if (error.status === 405) {
           // put a comment in the original PR, noting that the cascading failed
-          await context.github.issues.createComment({
+          await octokit.rest.issues.createComment({
             owner: repository.owner,
             repo: repository.repo,
             issue_number: pullNumber,
             body: "Could not auto merge PR #" + res.data.number + ". Possible merge conflict"
           })
           // create an Issue to notify Repo users
-          await context.github.issues.create({
+          await octokit.rest.issues.create({
             owner: repository.owner,
             repo: repository.repo,
             title: "Problem with cascading Auto-Merge [ mergable:" + error.mergable + " ]",
@@ -190,7 +183,7 @@ export async function cascadingBranchMerge(
           break
         }
         else {
-          await context.github.issues.create({
+          await octokit.rest.issues.create({
             owner: repository.owner,
             repo: repository.repo,
             title: "Problem with cascading Auto-Merge [ " + error.errors[0].message + " ]",
@@ -208,7 +201,7 @@ export async function cascadingBranchMerge(
   let ref
   if (refBranch.length > 0) {
     try {
-      ref = await context.github.pulls.create({
+      ref = await octokit.rest.pulls.create({
         owner: repository.owner,
         repo: repository.repo,
         base: refBranch,
@@ -218,7 +211,7 @@ export async function cascadingBranchMerge(
       })
 
       // create a comment in the HEAD Branch PR
-      await context.github.issues.createComment({
+      await octokit.rest.issues.createComment({
         owner: repository.owner,
         repo: repository.repo,
         issue_number: pullNumber,
@@ -226,7 +219,7 @@ export async function cascadingBranchMerge(
       })
 
       // MERGE the PR
-      await context.github.pulls.merge({
+      await octokit.rest.pulls.merge({
         owner: repository.owner,
         repo: repository.repo,
         pull_number: ref.data.number
@@ -237,14 +230,14 @@ export async function cascadingBranchMerge(
       console.error(error)
       if (error.status === 405) {
         // put a comment in the original PR, noting that merging failed
-        await context.github.issues.createComment({
+        await octokit.rest.issues.createComment({
           owner: repository.owner,
           repo: repository.repo,
           issue_number: pullNumber,
           body: "Could not auto merge PR #" + ref.data.number + ". Possible merge conflict"
         })
         // create an Issue to notify Repo users
-        await context.github.issues.create({
+        await octokit.rest.issues.create({
           owner: repository.owner,
           repo: repository.repo,
           title: "Problem with cascading Auto-Merge [ mergable:" + error.mergable + " ]",
@@ -253,7 +246,7 @@ export async function cascadingBranchMerge(
       }
       else {
         // create a comment in the HEAD Branch PR
-        await context.github.issues.createComment({
+        await octokit.rest.issues.createComment({
           owner: repository.owner,
           repo: repository.repo,
           issue_number: pullNumber,
@@ -351,7 +344,8 @@ function isBiggerThan(v1, v2) {
  * @param vStr
  */
 function semanticVersionToArray(vStr) {
-  const preRelease = new Map<string, number> ()
+  // creating a 'lookup' table for the semantic versioning, to translate the 'release-name' to a number
+  const preRelease = new Map()
   preRelease.set('alpha', 1)
   preRelease.set('beta', 2)
   preRelease.set('rc', 3)
@@ -369,11 +363,11 @@ function semanticVersionToArray(vStr) {
         // short version number - 1.1-rc
         av.splice(index, 1, parseInt(vTemp[0], 10))
         av.splice(index + 1, 1, 0)
-        av.splice(index + 2, 0, preRelease.get(vTemp[1])!)
+        av.splice(index + 2, 0, preRelease.get(vTemp[1]))
       } else {
         // full version number - 1.1.0-rc
         av.splice(index, 1, parseInt(vTemp[0], 10))
-        av.splice(index + 1, 0, preRelease.get(vTemp[1])!)
+        av.splice(index + 1, 0, preRelease.get(vTemp[1]))
       }
     } else {
       av.push(parseInt(v))
@@ -385,4 +379,9 @@ function semanticVersionToArray(vStr) {
   if (av.length < 5) { av[4] = 0 }
   // [1,1,0,3,1]
   return av
+}
+
+
+module.exports = {
+  cascadingBranchMerge
 }

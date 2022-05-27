@@ -6,7 +6,6 @@ on:
   workflow_dispatch:
     inputs:
       prefixes:
-        type: string
         description: List of prefixes to match
         required: true
 
@@ -35,5 +34,7 @@ jobs:
       - uses: ./
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          prefixes: ${{ github.event.inputs.prefixes }}
-          refBranch: ${{ github.event.inputs.refBranch }}
+          # prefixes: ${{ github.event.inputs.prefixes }}
+          # refBranch: ${{ github.event.inputs.refBranch }}
+          prefixes: feature
+          refBranch: development
