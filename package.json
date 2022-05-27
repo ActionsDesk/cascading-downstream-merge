@@ -43,6 +43,8 @@
   },
   "homepage": "https://github.com/ActionsDesk/cascading-downstream-merge#readme",
   "dependencies": {
+    "@actions/core": "^1.8.2",
+    "@actions/github": "^5.0.3",
     "nodemon": "^2.0.16"
   }
 }
