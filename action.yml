@@ -5,8 +5,11 @@ inputs:
   GITHUB_TOKEN:
     description: 'GitHub token'
     required: true
-  branchName:
-    description: 'branchName'
+  prefixes:
+    description: 'List of prefixes to match'
+    required: true
+  refBranch:
+    description: 'branch to use for the default PR'
     required: true
     
 runs:
