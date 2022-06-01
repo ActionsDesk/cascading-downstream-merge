@@ -41,6 +41,9 @@ const github = require('@actions/github');
             "repo": repo
         }
 
+
+        console.log([prefixes])
+
         cascadingBranchMerge(
             [prefixes],        // array of prefixes
             refBranch,
