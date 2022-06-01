@@ -48,6 +48,7 @@ async function cascadingBranchMerge(
     repo: repository.repo,
     per_page: 100
   }).data;
+  console.log(`branches: ${branches}`)
 
   let mergeListHead = []
   let mergeListBase = []

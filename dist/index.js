@@ -8744,6 +8744,7 @@ async function cascadingBranchMerge(
     repo: repository.repo,
     per_page: 100
   }).data;
+  console.info(`branches: ${branches}`)
 
   let mergeListHead = []
   let mergeListBase = []
@@ -9320,7 +9321,7 @@ const github = __nccwpck_require__(3134);
             "owner": owner,
             "repo": repo
         }
-
+        console.log(`prefix list: ${[prefixes]}`)
         cascadingBranchMerge(
             [prefixes],        // array of prefixes
             refBranch,

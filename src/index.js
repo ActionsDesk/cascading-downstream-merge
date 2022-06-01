@@ -40,7 +40,7 @@ const github = require('@actions/github');
             "owner": owner,
             "repo": repo
         }
-
+        console.log(`prefix list: ${[prefixes]}`)
         cascadingBranchMerge(
             [prefixes],        // array of prefixes
             refBranch,
