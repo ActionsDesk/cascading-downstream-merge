@@ -8743,7 +8743,7 @@ async function cascadingBranchMerge(
     owner: repository.owner,
     repo: repository.repo,
     per_page: 100
-  }).data;
+  });
   console.info(`branches: ${branches}`)
 
   let mergeListHead = []
