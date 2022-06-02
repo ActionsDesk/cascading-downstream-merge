@@ -1,4 +1,4 @@
-  
+
 /**
  * @description This class contains the main "Cascading Auto-Merge" code.
  *  Note: All the utility functions are kept within this class,
@@ -14,7 +14,7 @@
 /**
  * @description support structure for 'getRepoBranchMergeOrder'
  */
- let branch = {
+const branch = {
   name: '',
   commit: {},
   protected: false,
@@ -36,32 +36,31 @@
  * @param pullNumber
  * @param actor
  */
-async function cascadingBranchMerge(
-    prefixes,
-    refBranch,
-    headBranch,
-    baseBranch,
-    repository,
-    octokit,
-    pullNumber,
-    actor
+async function cascadingBranchMerge (
+  prefixes,
+  refBranch,
+  headBranch,
+  baseBranch,
+  repository,
+  octokit,
+  pullNumber,
+  actor
 ) {
-      
   const branches = (await octokit.rest.repos.listBranches({
     owner: repository.owner,
     repo: repository.repo,
     per_page: 100
-  })).data;
+  })).data
 
   console.log('branches:', branches)
 
   let mergeListHead = []
   let mergeListBase = []
-  let mergeLists = []
+  const mergeLists = []
   let mergeList = []
-  // create a list of branches that should be used for 'cascading-auto-merge' 
+  // create a list of branches that should be used for 'cascading-auto-merge'
   // NOTE: if the current 'headBranch'- prefix is not in the configured prefix list
-  //       we get an empty list which basically results in '0' execution of the 
+  //       we get an empty list which basically results in '0' execution of the
   //       'cascading-merge' loop
   // -------------------------------------------------------------------------
   // prefixes   = its the list of all 'prefixes' we have configured to use in cascading auto merge (auto-merge.yml)
@@ -103,9 +102,7 @@ async function cascadingBranchMerge(
           title: 'Cascading Auto-Merge: merge [' + mergeList[i] + '] into [' + mergeList[i + 1] + ']',
           body: 'This PR was created automatically by the cascading downstream merge action.'
         })
-      }
-      catch (error)   // could not create the PR
-      {
+      } catch (error) { // could not create the PR
         console.error(error)
 
         if (error.status === 422 && error.errors[0].message.startsWith('No commits between')) {
@@ -114,36 +111,34 @@ async function cascadingBranchMerge(
             owner: repository.owner,
             repo: repository.repo,
             issue_number: pullNumber,
-            body: "I Tried to create a cascading PR but encountered an issue, [" + error.errors[0].message + "] but I am going to continue the cascading merge"
+            body: 'I Tried to create a cascading PR but encountered an issue, [' + error.errors[0].message + '] but I am going to continue the cascading merge'
           })
           // goto the next PR iteration
           continue
-        }
-        else if (error.status === 422 && error.errors[0].message.startsWith('A pull request already exists')) {
+        } else if (error.status === 422 && error.errors[0].message.startsWith('A pull request already exists')) {
           // put a comment in the original PR, noting that the cascading failed
           await octokit.rest.issues.createComment({
             owner: repository.owner,
             repo: repository.repo,
             issue_number: pullNumber,
-            body: "I Tried to create a cascading PR but encountered an issue, [" + error.errors[0].message + "]"
+            body: 'I Tried to create a cascading PR but encountered an issue, [' + error.errors[0].message + ']'
           })
           break
-        }
-        else {
+        } else {
           // put a comment in the original PR, noting that the cascading failed
           await octokit.rest.issues.createComment({
             owner: repository.owner,
             repo: repository.repo,
             issue_number: pullNumber,
-            body: "Tried to create a cascading PR but encountered an issue [" + error.errors[0].message + "]"
+            body: 'Tried to create a cascading PR but encountered an issue [' + error.errors[0].message + ']'
           })
           // create an Issue in the Repo. that the cascading failed
           await octokit.rest.issues.create({
             owner: repository.owner,
             repo: repository.repo,
             assignees: actor,
-            title: "Problem with cascading Auto-Merge [ " + error.errors[0].message + "]",
-            body: "Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** [" + error.errors[0].message + " ]"
+            title: 'Problem with cascading Auto-Merge [ ' + error.errors[0].message + ']',
+            body: 'Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** [' + error.errors[0].message + ' ]'
           })
           // stop the cascading auto-merge
           break
@@ -155,7 +150,7 @@ async function cascadingBranchMerge(
         owner: repository.owner,
         repo: repository.repo,
         issue_number: pullNumber,
-        body: "Created cascading Auto-Merge pull request #" + res.data.number
+        body: 'Created cascading Auto-Merge pull request #' + res.data.number
       })
 
       // -----------------------------------------------------------------------------------------------------------------
@@ -167,8 +162,7 @@ async function cascadingBranchMerge(
           repo: repository.repo,
           pull_number: res.data.number
         })
-      }
-      catch (error) {
+      } catch (error) {
         console.error(error)
 
         if (error.status === 405) {
@@ -177,25 +171,24 @@ async function cascadingBranchMerge(
             owner: repository.owner,
             repo: repository.repo,
             issue_number: pullNumber,
-            body: "Could not auto merge PR #" + res.data.number + ". Possible merge conflict"
+            body: 'Could not auto merge PR #' + res.data.number + '. Possible merge conflict'
           })
           // create an Issue to notify Repo users
           await octokit.rest.issues.create({
             owner: repository.owner,
             repo: repository.repo,
-            title: "Problem with cascading Auto-Merge [ mergable:" + error.mergable + " ]",
-            body: "Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** - PR #" + res.data.number
+            title: 'Problem with cascading Auto-Merge [ mergable:' + error.mergable + ' ]',
+            body: 'Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** - PR #' + res.data.number
           })
           // stop the cascading auto-merge
           break
-        }
-        else {
+        } else {
           await octokit.rest.issues.create({
             owner: repository.owner,
             repo: repository.repo,
             assignees: actor,
-            title: "Problem with cascading Auto-Merge [ " + error.errors[0].message + " ]",
-            body: "Issue with a PR created by cascading auto-merge, please try to resolve the Issue. **Cascading Auto-Merge has been stopped!**"
+            title: 'Problem with cascading Auto-Merge [ ' + error.errors[0].message + ' ]',
+            body: 'Issue with a PR created by cascading auto-merge, please try to resolve the Issue. **Cascading Auto-Merge has been stopped!**'
           })
           break
         }
@@ -223,7 +216,7 @@ async function cascadingBranchMerge(
         owner: repository.owner,
         repo: repository.repo,
         issue_number: pullNumber,
-        body: "Created cascading Auto-Merge FINAL pull request #" + ref.data.number
+        body: 'Created cascading Auto-Merge FINAL pull request #' + ref.data.number
       })
 
       // MERGE the PR
@@ -232,34 +225,32 @@ async function cascadingBranchMerge(
         repo: repository.repo,
         pull_number: ref.data.number
       })
-    }
-    catch (error)   // could not create the PR
-    {
+    } catch (error) { // could not create the PR
       console.error(error)
+
       if (error.status === 405) {
         // put a comment in the original PR, noting that merging failed
         await octokit.rest.issues.createComment({
           owner: repository.owner,
           repo: repository.repo,
           issue_number: pullNumber,
-          body: "Could not auto merge PR #" + ref.data.number + ". Possible merge conflict"
+          body: 'Could not auto merge PR #' + ref.data.number + '. Possible merge conflict'
         })
         // create an Issue to notify Repo users
         await octokit.rest.issues.create({
           owner: repository.owner,
           repo: repository.repo,
           assignees: actor,
-          title: "Problem with cascading Auto-Merge [ mergable:" + error.mergable + " ]",
-          body: "Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** - PR #" + ref.data.number
+          title: 'Problem with cascading Auto-Merge [ mergable:' + error.mergable + ' ]',
+          body: 'Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** - PR #' + ref.data.number
         })
-      }
-      else {
+      } else {
         // create a comment in the HEAD Branch PR
         await octokit.rest.issues.createComment({
           owner: repository.owner,
           repo: repository.repo,
           issue_number: pullNumber,
-          body: "I Tried to create a cascading PR but encountered an issue, [" + error.errors[0].message + "]"
+          body: 'I Tried to create a cascading PR but encountered an issue, [' + error.errors[0].message + ']'
         })
       }
     }
@@ -278,7 +269,7 @@ async function cascadingBranchMerge(
  * @param headBranch
  * @param branches
  */
-function getBranchMergeOrder(prefix, headBranch, branches) {
+function getBranchMergeOrder (prefix, headBranch, branches) {
   let branchList = []
   // create a list from the 'branches' array, containing only branch names
   branches.forEach(function (branch) {
@@ -318,7 +309,7 @@ function getBranchMergeOrder(prefix, headBranch, branches) {
  * @param first_Index
  * @param second_Index
  */
-function swap(arr, index1, index2) {
+function swap (arr, index1, index2) {
   const temp = arr[index1]
   arr[index1] = arr[index2]
   arr[index2] = temp
@@ -331,7 +322,7 @@ function swap(arr, index1, index2) {
  * @param v1
  * @param v2
  */
-function isBiggerThan(v1, v2) {
+function isBiggerThan (v1, v2) {
   for (let i = 0; i < 5; i++) {
     if (v1[i] === v2[i]) {
       continue
@@ -353,7 +344,7 @@ function isBiggerThan(v1, v2) {
  *
  * @param vStr
  */
-function semanticVersionToArray(vStr) {
+function semanticVersionToArray (vStr) {
   // creating a 'lookup' table for the semantic versioning, to translate the 'release-name' to a number
   const preRelease = new Map()
   preRelease.set('alpha', 1)
@@ -390,7 +381,6 @@ function semanticVersionToArray(vStr) {
   // [1,1,0,3,1]
   return av
 }
-
 
 module.exports = {
   cascadingBranchMerge
