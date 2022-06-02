@@ -15,7 +15,7 @@ on:
         required: true
 
   pull_request:
-    types: [opened, reopened]
+    types: closed
 
 jobs:
   merge:
@@ -36,5 +36,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # prefixes: ${{ github.event.inputs.prefixes }}
           # refBranch: ${{ github.event.inputs.refBranch }}
-          prefixes: feature
+          prefixes: release/,feature/,hotfix/
           refBranch: development

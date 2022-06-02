@@ -30,8 +30,11 @@
  * @param prefixes
  * @param refBranch
  * @param headBranch
+ * @param baseBranch
  * @param repository
  * @param octokit
+ * @param pullNumber
+ * @param actor
  */
 async function cascadingBranchMerge(
     prefixes,
@@ -40,14 +43,17 @@ async function cascadingBranchMerge(
     baseBranch,
     repository,
     octokit,
-    pullNumber
+    pullNumber,
+    actor
 ) {
-
-  const branches = await octokit.rest.repos.listBranches({
+      
+  const branches = (await octokit.rest.repos.listBranches({
     owner: repository.owner,
     repo: repository.repo,
     per_page: 100
-  }).data;
+  })).data;
+
+  console.log('branches:', branches)
 
   let mergeListHead = []
   let mergeListBase = []
@@ -95,7 +101,7 @@ async function cascadingBranchMerge(
           base: mergeList[i + 1],
           head: mergeList[i],
           title: 'Cascading Auto-Merge: merge [' + mergeList[i] + '] into [' + mergeList[i + 1] + ']',
-          body: 'This PR was created automatically by the probot auto-merge app.'
+          body: 'This PR was created automatically by the cascading downstream merge action.'
         })
       }
       catch (error)   // could not create the PR
@@ -135,6 +141,7 @@ async function cascadingBranchMerge(
           await octokit.rest.issues.create({
             owner: repository.owner,
             repo: repository.repo,
+            assignees: actor,
             title: "Problem with cascading Auto-Merge [ " + error.errors[0].message + "]",
             body: "Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** [" + error.errors[0].message + " ]"
           })
@@ -186,6 +193,7 @@ async function cascadingBranchMerge(
           await octokit.rest.issues.create({
             owner: repository.owner,
             repo: repository.repo,
+            assignees: actor,
             title: "Problem with cascading Auto-Merge [ " + error.errors[0].message + " ]",
             body: "Issue with a PR created by cascading auto-merge, please try to resolve the Issue. **Cascading Auto-Merge has been stopped!**"
           })
@@ -207,7 +215,7 @@ async function cascadingBranchMerge(
         base: refBranch,
         head: headBranch,
         title: 'Cascading Auto-Merge: merge [' + headBranch + '] into [' + refBranch + ']',
-        body: 'This PR was created automatically by the probot auto-merge app.'
+        body: 'This PR was created automatically by the cascading downstream merge action.'
       })
 
       // create a comment in the HEAD Branch PR
@@ -240,6 +248,7 @@ async function cascadingBranchMerge(
         await octokit.rest.issues.create({
           owner: repository.owner,
           repo: repository.repo,
+          assignees: actor,
           title: "Problem with cascading Auto-Merge [ mergable:" + error.mergable + " ]",
           body: "Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** - PR #" + ref.data.number
         })
@@ -281,6 +290,7 @@ function getBranchMergeOrder(prefix, headBranch, branches) {
 
   const len = branchList.length
 
+  console.log('getBranchMergeOrder - branchList: ', branchList)
   // Bubble Sort - I know... but it's fine for our purpose
   for (let j = 0; j < len - 1; j++) {
     for (let i = 0; i < len - 1; i++) {
