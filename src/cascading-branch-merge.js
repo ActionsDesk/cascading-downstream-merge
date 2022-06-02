@@ -12,16 +12,6 @@
  */
 
 /**
- * @description support structure for 'getRepoBranchMergeOrder'
- */
-const branch = {
-  name: '',
-  commit: {},
-  protected: false,
-  protection: {}
-}
-
-/**
  * @function cascadingBranchMerge
  * @description Merge all 'Release' branches by ascending order of their semantic version
  *              Multiple GitHub API calls are being processed as a single transaction!
