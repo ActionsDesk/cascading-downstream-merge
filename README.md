@@ -4,7 +4,7 @@
 ![release](https://img.shields.io/badge/release-1.2-blue)
 ![node](https://img.shields.io/badge/NODE-v3.5-darkgreen)
 
-[:open_file_folder: Documentation Pages](https://actionsdesk.github.io/cascading-downstream-merge/#/)
+[:open_file_folder: Documentation Pages](https://actionsdesk.github.io/cascading-downstream-merge/#/cascading-auto-merge)
 
 # Cascading Auto-Merge
 
