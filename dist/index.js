@@ -1,7 +1,7 @@
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 5604:
+/***/ 5025:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -28,7 +28,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.issue = exports.issueCommand = void 0;
 const os = __importStar(__nccwpck_require__(2037));
-const utils_1 = __nccwpck_require__(1245);
+const utils_1 = __nccwpck_require__(5461);
 /**
  * Commands
  *
@@ -100,7 +100,7 @@ function escapeProperty(s) {
 
 /***/ }),
 
-/***/ 5127:
+/***/ 9895:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -135,12 +135,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getIDToken = exports.getState = exports.saveState = exports.group = exports.endGroup = exports.startGroup = exports.info = exports.notice = exports.warning = exports.error = exports.debug = exports.isDebug = exports.setFailed = exports.setCommandEcho = exports.setOutput = exports.getBooleanInput = exports.getMultilineInput = exports.getInput = exports.addPath = exports.setSecret = exports.exportVariable = exports.ExitCode = void 0;
-const command_1 = __nccwpck_require__(5604);
-const file_command_1 = __nccwpck_require__(7352);
-const utils_1 = __nccwpck_require__(1245);
+const command_1 = __nccwpck_require__(5025);
+const file_command_1 = __nccwpck_require__(7049);
+const utils_1 = __nccwpck_require__(5461);
 const os = __importStar(__nccwpck_require__(2037));
 const path = __importStar(__nccwpck_require__(1017));
-const oidc_utils_1 = __nccwpck_require__(4457);
+const oidc_utils_1 = __nccwpck_require__(8218);
 /**
  * The code to exit an action
  */
@@ -418,18 +418,18 @@ exports.getIDToken = getIDToken;
 /**
  * Summary exports
  */
-var summary_1 = __nccwpck_require__(9124);
+var summary_1 = __nccwpck_require__(9600);
 Object.defineProperty(exports, "summary", ({ enumerable: true, get: function () { return summary_1.summary; } }));
 /**
  * @deprecated use core.summary
  */
-var summary_2 = __nccwpck_require__(9124);
+var summary_2 = __nccwpck_require__(9600);
 Object.defineProperty(exports, "markdownSummary", ({ enumerable: true, get: function () { return summary_2.markdownSummary; } }));
 //# sourceMappingURL=core.js.map
 
 /***/ }),
 
-/***/ 7352:
+/***/ 7049:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -460,7 +460,7 @@ exports.issueCommand = void 0;
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const fs = __importStar(__nccwpck_require__(7147));
 const os = __importStar(__nccwpck_require__(2037));
-const utils_1 = __nccwpck_require__(1245);
+const utils_1 = __nccwpck_require__(5461);
 function issueCommand(command, message) {
     const filePath = process.env[`GITHUB_${command}`];
     if (!filePath) {
@@ -478,7 +478,7 @@ exports.issueCommand = issueCommand;
 
 /***/ }),
 
-/***/ 4457:
+/***/ 8218:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -494,9 +494,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.OidcClient = void 0;
-const http_client_1 = __nccwpck_require__(6227);
-const auth_1 = __nccwpck_require__(5181);
-const core_1 = __nccwpck_require__(5127);
+const http_client_1 = __nccwpck_require__(8745);
+const auth_1 = __nccwpck_require__(2110);
+const core_1 = __nccwpck_require__(9895);
 class OidcClient {
     static createHttpClient(allowRetry = true, maxRetry = 10) {
         const requestOptions = {
@@ -562,7 +562,7 @@ exports.OidcClient = OidcClient;
 
 /***/ }),
 
-/***/ 9124:
+/***/ 9600:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -852,7 +852,7 @@ exports.summary = _summary;
 
 /***/ }),
 
-/***/ 1245:
+/***/ 5461:
 /***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
@@ -899,7 +899,7 @@ exports.toCommandProperties = toCommandProperties;
 
 /***/ }),
 
-/***/ 5210:
+/***/ 2659:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
@@ -960,7 +960,7 @@ exports.Context = Context;
 
 /***/ }),
 
-/***/ 3134:
+/***/ 1333:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -986,8 +986,8 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getOctokit = exports.context = void 0;
-const Context = __importStar(__nccwpck_require__(5210));
-const utils_1 = __nccwpck_require__(5310);
+const Context = __importStar(__nccwpck_require__(2659));
+const utils_1 = __nccwpck_require__(4477);
 exports.context = new Context.Context();
 /**
  * Returns a hydrated octokit ready to use for GitHub Actions
@@ -1003,7 +1003,7 @@ exports.getOctokit = getOctokit;
 
 /***/ }),
 
-/***/ 7329:
+/***/ 5377:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -1029,7 +1029,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getApiBaseUrl = exports.getProxyAgent = exports.getAuthString = void 0;
-const httpClient = __importStar(__nccwpck_require__(6227));
+const httpClient = __importStar(__nccwpck_require__(8745));
 function getAuthString(token, options) {
     if (!token && !options.auth) {
         throw new Error('Parameter token or opts.auth is required');
@@ -1053,7 +1053,7 @@ exports.getApiBaseUrl = getApiBaseUrl;
 
 /***/ }),
 
-/***/ 5310:
+/***/ 4477:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -1079,12 +1079,12 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getOctokitOptions = exports.GitHub = exports.context = void 0;
-const Context = __importStar(__nccwpck_require__(5210));
-const Utils = __importStar(__nccwpck_require__(7329));
+const Context = __importStar(__nccwpck_require__(2659));
+const Utils = __importStar(__nccwpck_require__(5377));
 // octokit + plugins
-const core_1 = __nccwpck_require__(6461);
-const plugin_rest_endpoint_methods_1 = __nccwpck_require__(6752);
-const plugin_paginate_rest_1 = __nccwpck_require__(9883);
+const core_1 = __nccwpck_require__(7082);
+const plugin_rest_endpoint_methods_1 = __nccwpck_require__(5717);
+const plugin_paginate_rest_1 = __nccwpck_require__(7973);
 exports.context = new Context.Context();
 const baseUrl = Utils.getApiBaseUrl();
 const defaults = {
@@ -1114,7 +1114,7 @@ exports.getOctokitOptions = getOctokitOptions;
 
 /***/ }),
 
-/***/ 5181:
+/***/ 2110:
 /***/ (function(__unused_webpack_module, exports) {
 
 "use strict";
@@ -1202,7 +1202,7 @@ exports.PersonalAccessTokenCredentialHandler = PersonalAccessTokenCredentialHand
 
 /***/ }),
 
-/***/ 6227:
+/***/ 8745:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -1240,8 +1240,8 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.HttpClient = exports.isHttps = exports.HttpClientResponse = exports.HttpClientError = exports.getProxyUrl = exports.MediaTypes = exports.Headers = exports.HttpCodes = void 0;
 const http = __importStar(__nccwpck_require__(3685));
 const https = __importStar(__nccwpck_require__(5687));
-const pm = __importStar(__nccwpck_require__(603));
-const tunnel = __importStar(__nccwpck_require__(7265));
+const pm = __importStar(__nccwpck_require__(891));
+const tunnel = __importStar(__nccwpck_require__(9431));
 var HttpCodes;
 (function (HttpCodes) {
     HttpCodes[HttpCodes["OK"] = 200] = "OK";
@@ -1814,7 +1814,7 @@ const lowercaseKeys = (obj) => Object.keys(obj).reduce((c, k) => ((c[k.toLowerCa
 
 /***/ }),
 
-/***/ 603:
+/***/ 891:
 /***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
@@ -1882,7 +1882,7 @@ exports.checkBypass = checkBypass;
 
 /***/ }),
 
-/***/ 8426:
+/***/ 8684:
 /***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
@@ -1945,7 +1945,7 @@ exports.createTokenAuth = createTokenAuth;
 
 /***/ }),
 
-/***/ 6461:
+/***/ 7082:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
@@ -1953,11 +1953,11 @@ exports.createTokenAuth = createTokenAuth;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 
-var universalUserAgent = __nccwpck_require__(7081);
-var beforeAfterHook = __nccwpck_require__(3108);
-var request = __nccwpck_require__(3986);
-var graphql = __nccwpck_require__(1463);
-var authToken = __nccwpck_require__(8426);
+var universalUserAgent = __nccwpck_require__(1566);
+var beforeAfterHook = __nccwpck_require__(2422);
+var request = __nccwpck_require__(2957);
+var graphql = __nccwpck_require__(9538);
+var authToken = __nccwpck_require__(8684);
 
 function _objectWithoutPropertiesLoose(source, excluded) {
   if (source == null) return {};
@@ -2129,7 +2129,7 @@ exports.Octokit = Octokit;
 
 /***/ }),
 
-/***/ 2995:
+/***/ 7761:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
@@ -2137,8 +2137,8 @@ exports.Octokit = Octokit;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 
-var isPlainObject = __nccwpck_require__(3032);
-var universalUserAgent = __nccwpck_require__(7081);
+var isPlainObject = __nccwpck_require__(5425);
+var universalUserAgent = __nccwpck_require__(1566);
 
 function lowercaseKeys(object) {
   if (!object) {
@@ -2527,7 +2527,7 @@ exports.endpoint = endpoint;
 
 /***/ }),
 
-/***/ 1463:
+/***/ 9538:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
@@ -2535,8 +2535,8 @@ exports.endpoint = endpoint;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 
-var request = __nccwpck_require__(3986);
-var universalUserAgent = __nccwpck_require__(7081);
+var request = __nccwpck_require__(2957);
+var universalUserAgent = __nccwpck_require__(1566);
 
 const VERSION = "4.8.0";
 
@@ -2653,7 +2653,7 @@ exports.withCustomRequest = withCustomRequest;
 
 /***/ }),
 
-/***/ 9883:
+/***/ 7973:
 /***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
@@ -2878,7 +2878,7 @@ exports.paginatingEndpoints = paginatingEndpoints;
 
 /***/ }),
 
-/***/ 6752:
+/***/ 5717:
 /***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
@@ -3911,7 +3911,7 @@ exports.restEndpointMethods = restEndpointMethods;
 
 /***/ }),
 
-/***/ 3190:
+/***/ 444:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
@@ -3921,8 +3921,8 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-var deprecation = __nccwpck_require__(5800);
-var once = _interopDefault(__nccwpck_require__(8666));
+var deprecation = __nccwpck_require__(7331);
+var once = _interopDefault(__nccwpck_require__(1687));
 
 const logOnceCode = once(deprecation => console.warn(deprecation));
 const logOnceHeaders = once(deprecation => console.warn(deprecation));
@@ -3993,7 +3993,7 @@ exports.RequestError = RequestError;
 
 /***/ }),
 
-/***/ 3986:
+/***/ 2957:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
@@ -4003,11 +4003,11 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-var endpoint = __nccwpck_require__(2995);
-var universalUserAgent = __nccwpck_require__(7081);
-var isPlainObject = __nccwpck_require__(3032);
-var nodeFetch = _interopDefault(__nccwpck_require__(8534));
-var requestError = __nccwpck_require__(3190);
+var endpoint = __nccwpck_require__(7761);
+var universalUserAgent = __nccwpck_require__(1566);
+var isPlainObject = __nccwpck_require__(5425);
+var nodeFetch = _interopDefault(__nccwpck_require__(8335));
+var requestError = __nccwpck_require__(444);
 
 const VERSION = "5.6.3";
 
@@ -4178,12 +4178,12 @@ exports.request = request;
 
 /***/ }),
 
-/***/ 3108:
+/***/ 2422:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-var register = __nccwpck_require__(9676)
-var addHook = __nccwpck_require__(3862)
-var removeHook = __nccwpck_require__(7704)
+var register = __nccwpck_require__(4203)
+var addHook = __nccwpck_require__(3054)
+var removeHook = __nccwpck_require__(4927)
 
 // bind with array of arguments: https://stackoverflow.com/a/21792913
 var bind = Function.bind
@@ -4242,7 +4242,7 @@ module.exports.Collection = Hook.Collection
 
 /***/ }),
 
-/***/ 3862:
+/***/ 3054:
 /***/ ((module) => {
 
 module.exports = addHook;
@@ -4295,7 +4295,7 @@ function addHook(state, kind, name, hook) {
 
 /***/ }),
 
-/***/ 9676:
+/***/ 4203:
 /***/ ((module) => {
 
 module.exports = register;
@@ -4329,7 +4329,7 @@ function register(state, name, method, options) {
 
 /***/ }),
 
-/***/ 7704:
+/***/ 4927:
 /***/ ((module) => {
 
 module.exports = removeHook;
@@ -4355,7 +4355,7 @@ function removeHook(state, name, method) {
 
 /***/ }),
 
-/***/ 5800:
+/***/ 7331:
 /***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
@@ -4383,7 +4383,7 @@ exports.Deprecation = Deprecation;
 
 /***/ }),
 
-/***/ 3032:
+/***/ 5425:
 /***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
@@ -4429,7 +4429,7 @@ exports.isPlainObject = isPlainObject;
 
 /***/ }),
 
-/***/ 8534:
+/***/ 8335:
 /***/ ((module, exports, __nccwpck_require__) => {
 
 "use strict";
@@ -4442,7 +4442,7 @@ function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'defau
 var Stream = _interopDefault(__nccwpck_require__(2781));
 var http = _interopDefault(__nccwpck_require__(3685));
 var Url = _interopDefault(__nccwpck_require__(7310));
-var whatwgUrl = _interopDefault(__nccwpck_require__(2871));
+var whatwgUrl = _interopDefault(__nccwpck_require__(436));
 var https = _interopDefault(__nccwpck_require__(5687));
 var zlib = _interopDefault(__nccwpck_require__(9796));
 
@@ -4595,7 +4595,7 @@ FetchError.prototype.name = 'FetchError';
 
 let convert;
 try {
-	convert = (__nccwpck_require__(2431).convert);
+	convert = (__nccwpck_require__(5650).convert);
 } catch (e) {}
 
 const INTERNALS = Symbol('Body internals');
@@ -6134,10 +6134,10 @@ exports.FetchError = FetchError;
 
 /***/ }),
 
-/***/ 8666:
+/***/ 1687:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-var wrappy = __nccwpck_require__(9002)
+var wrappy = __nccwpck_require__(3845)
 module.exports = wrappy(once)
 module.exports.strict = wrappy(onceStrict)
 
@@ -6183,7 +6183,7 @@ function onceStrict (fn) {
 
 /***/ }),
 
-/***/ 7801:
+/***/ 8048:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 "use strict";
@@ -6384,15 +6384,15 @@ module.exports.PROCESSING_OPTIONS = PROCESSING_OPTIONS;
 
 /***/ }),
 
-/***/ 7265:
+/***/ 9431:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-module.exports = __nccwpck_require__(2686);
+module.exports = __nccwpck_require__(1618);
 
 
 /***/ }),
 
-/***/ 2686:
+/***/ 1618:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
@@ -6664,7 +6664,7 @@ exports.debug = debug; // for test
 
 /***/ }),
 
-/***/ 7081:
+/***/ 1566:
 /***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
@@ -6690,7 +6690,7 @@ exports.getUserAgent = getUserAgent;
 
 /***/ }),
 
-/***/ 6886:
+/***/ 190:
 /***/ ((module) => {
 
 "use strict";
@@ -6887,12 +6887,12 @@ conversions["RegExp"] = function (V, opts) {
 
 /***/ }),
 
-/***/ 4383:
+/***/ 9978:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
-const usm = __nccwpck_require__(640);
+const usm = __nccwpck_require__(9115);
 
 exports.implementation = class URLImpl {
   constructor(constructorArgs) {
@@ -7095,15 +7095,15 @@ exports.implementation = class URLImpl {
 
 /***/ }),
 
-/***/ 2306:
+/***/ 93:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 "use strict";
 
 
-const conversions = __nccwpck_require__(6886);
-const utils = __nccwpck_require__(6723);
-const Impl = __nccwpck_require__(4383);
+const conversions = __nccwpck_require__(190);
+const utils = __nccwpck_require__(3612);
+const Impl = __nccwpck_require__(9978);
 
 const impl = utils.implSymbol;
 
@@ -7299,32 +7299,32 @@ module.exports = {
 
 /***/ }),
 
-/***/ 2871:
+/***/ 436:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
 
-exports.URL = __nccwpck_require__(2306)["interface"];
-exports.serializeURL = __nccwpck_require__(640).serializeURL;
-exports.serializeURLOrigin = __nccwpck_require__(640).serializeURLOrigin;
-exports.basicURLParse = __nccwpck_require__(640).basicURLParse;
-exports.setTheUsername = __nccwpck_require__(640).setTheUsername;
-exports.setThePassword = __nccwpck_require__(640).setThePassword;
-exports.serializeHost = __nccwpck_require__(640).serializeHost;
-exports.serializeInteger = __nccwpck_require__(640).serializeInteger;
-exports.parseURL = __nccwpck_require__(640).parseURL;
+exports.URL = __nccwpck_require__(93)["interface"];
+exports.serializeURL = __nccwpck_require__(9115).serializeURL;
+exports.serializeURLOrigin = __nccwpck_require__(9115).serializeURLOrigin;
+exports.basicURLParse = __nccwpck_require__(9115).basicURLParse;
+exports.setTheUsername = __nccwpck_require__(9115).setTheUsername;
+exports.setThePassword = __nccwpck_require__(9115).setThePassword;
+exports.serializeHost = __nccwpck_require__(9115).serializeHost;
+exports.serializeInteger = __nccwpck_require__(9115).serializeInteger;
+exports.parseURL = __nccwpck_require__(9115).parseURL;
 
 
 /***/ }),
 
-/***/ 640:
+/***/ 9115:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 "use strict";
 
 const punycode = __nccwpck_require__(5477);
-const tr46 = __nccwpck_require__(7801);
+const tr46 = __nccwpck_require__(8048);
 
 const specialSchemes = {
   ftp: 21,
@@ -8623,7 +8623,7 @@ module.exports.parseURL = function (input, options) {
 
 /***/ }),
 
-/***/ 6723:
+/***/ 3612:
 /***/ ((module) => {
 
 "use strict";
@@ -8651,7 +8651,7 @@ module.exports.implForWrapper = function (wrapper) {
 
 /***/ }),
 
-/***/ 9002:
+/***/ 3845:
 /***/ ((module) => {
 
 // Returns a wrapper function that returns a wrapped callback
@@ -8691,10 +8691,10 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
-/***/ 2529:
+/***/ 3120:
 /***/ ((module) => {
 
-  
+
 /**
  * @description This class contains the main "Cascading Auto-Merge" code.
  *  Note: All the utility functions are kept within this class,
@@ -8708,16 +8708,6 @@ function wrappy (fn, cb) {
  */
 
 /**
- * @description support structure for 'getRepoBranchMergeOrder'
- */
- let branch = {
-  name: '',
-  commit: {},
-  protected: false,
-  protection: {}
-}
-
-/**
  * @function cascadingBranchMerge
  * @description Merge all 'Release' branches by ascending order of their semantic version
  *              Multiple GitHub API calls are being processed as a single transaction!
@@ -8726,32 +8716,37 @@ function wrappy (fn, cb) {
  * @param prefixes
  * @param refBranch
  * @param headBranch
+ * @param baseBranch
  * @param repository
  * @param octokit
+ * @param pullNumber
+ * @param actor
  */
-async function cascadingBranchMerge(
-    prefixes,
-    refBranch,
-    headBranch,
-    baseBranch,
-    repository,
-    octokit,
-    pullNumber
+async function cascadingBranchMerge (
+  prefixes,
+  refBranch,
+  headBranch,
+  baseBranch,
+  repository,
+  octokit,
+  pullNumber,
+  actor
 ) {
-
-  const branches = await octokit.rest.repos.listBranches({
+  const branches = (await octokit.rest.repos.listBranches({
     owner: repository.owner,
     repo: repository.repo,
     per_page: 100
-  }).data;
+  })).data
+
+  console.log('branches:', branches)
 
   let mergeListHead = []
   let mergeListBase = []
-  let mergeLists = []
+  const mergeLists = []
   let mergeList = []
-  // create a list of branches that should be used for 'cascading-auto-merge' 
+  // create a list of branches that should be used for 'cascading-auto-merge'
   // NOTE: if the current 'headBranch'- prefix is not in the configured prefix list
-  //       we get an empty list which basically results in '0' execution of the 
+  //       we get an empty list which basically results in '0' execution of the
   //       'cascading-merge' loop
   // -------------------------------------------------------------------------
   // prefixes   = its the list of all 'prefixes' we have configured to use in cascading auto merge (auto-merge.yml)
@@ -8791,11 +8786,9 @@ async function cascadingBranchMerge(
           base: mergeList[i + 1],
           head: mergeList[i],
           title: 'Cascading Auto-Merge: merge [' + mergeList[i] + '] into [' + mergeList[i + 1] + ']',
-          body: 'This PR was created automatically by the probot auto-merge app.'
+          body: 'This PR was created automatically by the cascading downstream merge action.'
         })
-      }
-      catch (error)   // could not create the PR
-      {
+      } catch (error) { // could not create the PR
         console.error(error)
 
         if (error.status === 422 && error.errors[0].message.startsWith('No commits between')) {
@@ -8804,35 +8797,34 @@ async function cascadingBranchMerge(
             owner: repository.owner,
             repo: repository.repo,
             issue_number: pullNumber,
-            body: "I Tried to create a cascading PR but encountered an issue, [" + error.errors[0].message + "] but I am going to continue the cascading merge"
+            body: 'I Tried to create a cascading PR but encountered an issue, [' + error.errors[0].message + '] but I am going to continue the cascading merge'
           })
           // goto the next PR iteration
           continue
-        }
-        else if (error.status === 422 && error.errors[0].message.startsWith('A pull request already exists')) {
+        } else if (error.status === 422 && error.errors[0].message.startsWith('A pull request already exists')) {
           // put a comment in the original PR, noting that the cascading failed
           await octokit.rest.issues.createComment({
             owner: repository.owner,
             repo: repository.repo,
             issue_number: pullNumber,
-            body: "I Tried to create a cascading PR but encountered an issue, [" + error.errors[0].message + "]"
+            body: 'I Tried to create a cascading PR but encountered an issue, [' + error.errors[0].message + ']'
           })
           break
-        }
-        else {
+        } else {
           // put a comment in the original PR, noting that the cascading failed
           await octokit.rest.issues.createComment({
             owner: repository.owner,
             repo: repository.repo,
             issue_number: pullNumber,
-            body: "Tried to create a cascading PR but encountered an issue [" + error.errors[0].message + "]"
+            body: 'Tried to create a cascading PR but encountered an issue [' + error.errors[0].message + ']'
           })
           // create an Issue in the Repo. that the cascading failed
           await octokit.rest.issues.create({
             owner: repository.owner,
             repo: repository.repo,
-            title: "Problem with cascading Auto-Merge [ " + error.errors[0].message + "]",
-            body: "Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** [" + error.errors[0].message + " ]"
+            assignees: actor,
+            title: 'Problem with cascading Auto-Merge [ ' + error.errors[0].message + ']',
+            body: 'Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** [' + error.errors[0].message + ' ]'
           })
           // stop the cascading auto-merge
           break
@@ -8844,7 +8836,7 @@ async function cascadingBranchMerge(
         owner: repository.owner,
         repo: repository.repo,
         issue_number: pullNumber,
-        body: "Created cascading Auto-Merge pull request #" + res.data.number
+        body: 'Created cascading Auto-Merge pull request #' + res.data.number
       })
 
       // -----------------------------------------------------------------------------------------------------------------
@@ -8856,8 +8848,7 @@ async function cascadingBranchMerge(
           repo: repository.repo,
           pull_number: res.data.number
         })
-      }
-      catch (error) {
+      } catch (error) {
         console.error(error)
 
         if (error.status === 405) {
@@ -8866,24 +8857,24 @@ async function cascadingBranchMerge(
             owner: repository.owner,
             repo: repository.repo,
             issue_number: pullNumber,
-            body: "Could not auto merge PR #" + res.data.number + ". Possible merge conflict"
+            body: 'Could not auto merge PR #' + res.data.number + '. Possible merge conflict'
           })
           // create an Issue to notify Repo users
           await octokit.rest.issues.create({
             owner: repository.owner,
             repo: repository.repo,
-            title: "Problem with cascading Auto-Merge [ mergable:" + error.mergable + " ]",
-            body: "Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** - PR #" + res.data.number
+            title: 'Problem with cascading Auto-Merge [ mergable:' + error.mergable + ' ]',
+            body: 'Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** - PR #' + res.data.number
           })
           // stop the cascading auto-merge
           break
-        }
-        else {
+        } else {
           await octokit.rest.issues.create({
             owner: repository.owner,
             repo: repository.repo,
-            title: "Problem with cascading Auto-Merge [ " + error.errors[0].message + " ]",
-            body: "Issue with a PR created by cascading auto-merge, please try to resolve the Issue. **Cascading Auto-Merge has been stopped!**"
+            assignees: actor,
+            title: 'Problem with cascading Auto-Merge [ ' + error.errors[0].message + ' ]',
+            body: 'Issue with a PR created by cascading auto-merge, please try to resolve the Issue. **Cascading Auto-Merge has been stopped!**'
           })
           break
         }
@@ -8903,7 +8894,7 @@ async function cascadingBranchMerge(
         base: refBranch,
         head: headBranch,
         title: 'Cascading Auto-Merge: merge [' + headBranch + '] into [' + refBranch + ']',
-        body: 'This PR was created automatically by the probot auto-merge app.'
+        body: 'This PR was created automatically by the cascading downstream merge action.'
       })
 
       // create a comment in the HEAD Branch PR
@@ -8911,7 +8902,7 @@ async function cascadingBranchMerge(
         owner: repository.owner,
         repo: repository.repo,
         issue_number: pullNumber,
-        body: "Created cascading Auto-Merge FINAL pull request #" + ref.data.number
+        body: 'Created cascading Auto-Merge FINAL pull request #' + ref.data.number
       })
 
       // MERGE the PR
@@ -8920,33 +8911,32 @@ async function cascadingBranchMerge(
         repo: repository.repo,
         pull_number: ref.data.number
       })
-    }
-    catch (error)   // could not create the PR
-    {
+    } catch (error) { // could not create the PR
       console.error(error)
+
       if (error.status === 405) {
         // put a comment in the original PR, noting that merging failed
         await octokit.rest.issues.createComment({
           owner: repository.owner,
           repo: repository.repo,
           issue_number: pullNumber,
-          body: "Could not auto merge PR #" + ref.data.number + ". Possible merge conflict"
+          body: 'Could not auto merge PR #' + ref.data.number + '. Possible merge conflict'
         })
         // create an Issue to notify Repo users
         await octokit.rest.issues.create({
           owner: repository.owner,
           repo: repository.repo,
-          title: "Problem with cascading Auto-Merge [ mergable:" + error.mergable + " ]",
-          body: "Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** - PR #" + ref.data.number
+          assignees: actor,
+          title: 'Problem with cascading Auto-Merge [ mergable:' + error.mergable + ' ]',
+          body: 'Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** - PR #' + ref.data.number
         })
-      }
-      else {
+      } else {
         // create a comment in the HEAD Branch PR
         await octokit.rest.issues.createComment({
           owner: repository.owner,
           repo: repository.repo,
           issue_number: pullNumber,
-          body: "I Tried to create a cascading PR but encountered an issue, [" + error.errors[0].message + "]"
+          body: 'I Tried to create a cascading PR but encountered an issue, [' + error.errors[0].message + ']'
         })
       }
     }
@@ -8965,7 +8955,7 @@ async function cascadingBranchMerge(
  * @param headBranch
  * @param branches
  */
-function getBranchMergeOrder(prefix, headBranch, branches) {
+function getBranchMergeOrder (prefix, headBranch, branches) {
   let branchList = []
   // create a list from the 'branches' array, containing only branch names
   branches.forEach(function (branch) {
@@ -8977,6 +8967,7 @@ function getBranchMergeOrder(prefix, headBranch, branches) {
 
   const len = branchList.length
 
+  console.log('getBranchMergeOrder - branchList: ', branchList)
   // Bubble Sort - I know... but it's fine for our purpose
   for (let j = 0; j < len - 1; j++) {
     for (let i = 0; i < len - 1; i++) {
@@ -9004,7 +8995,7 @@ function getBranchMergeOrder(prefix, headBranch, branches) {
  * @param first_Index
  * @param second_Index
  */
-function swap(arr, index1, index2) {
+function swap (arr, index1, index2) {
   const temp = arr[index1]
   arr[index1] = arr[index2]
   arr[index2] = temp
@@ -9017,7 +9008,7 @@ function swap(arr, index1, index2) {
  * @param v1
  * @param v2
  */
-function isBiggerThan(v1, v2) {
+function isBiggerThan (v1, v2) {
   for (let i = 0; i < 5; i++) {
     if (v1[i] === v2[i]) {
       continue
@@ -9039,7 +9030,7 @@ function isBiggerThan(v1, v2) {
  *
  * @param vStr
  */
-function semanticVersionToArray(vStr) {
+function semanticVersionToArray (vStr) {
   // creating a 'lookup' table for the semantic versioning, to translate the 'release-name' to a number
   const preRelease = new Map()
   preRelease.set('alpha', 1)
@@ -9077,39 +9068,14 @@ function semanticVersionToArray(vStr) {
   return av
 }
 
-
 module.exports = {
   cascadingBranchMerge
 }
 
-/***/ }),
-
-/***/ 1242:
-/***/ ((module) => {
-
-
-async function getPullRequest(pull_number, owner, repo, octokit) {
-    const pr = await octokit.rest.pulls.get({
-        owner,
-        repo,
-        pull_number,
-    });
-
-    return pr;
-}
-  
-function checkMergability(a, b) {
-  return a+b;
-}
-
-module.exports = {
-    getPullRequest,
-    checkMergability
-}
 
 /***/ }),
 
-/***/ 2431:
+/***/ 5650:
 /***/ ((module) => {
 
 module.exports = eval("require")("encoding");
@@ -9278,66 +9244,69 @@ module.exports = JSON.parse('[[[0,44],"disallowed_STD3_valid"],[[45,46],"valid"]
 var __webpack_exports__ = {};
 // This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
 (() => {
-const { checkMergability, getPullRequest } = __nccwpck_require__(1242)
-const { cascadingBranchMerge } = __nccwpck_require__(2529)
+const { cascadingBranchMerge } = __nccwpck_require__(3120)
 
-const core = __nccwpck_require__(5127);
-const github = __nccwpck_require__(3134);
+const core = __nccwpck_require__(9895)
+const github = __nccwpck_require__(1333)
 
 /**
  * @description Entrypoint
  */
- async function exec() {
+async function exec () {
+  try {
+    const prefixes = core.getInput('prefixes')
+    const refBranch = core.getInput('refBranch')
+    const token = core.getInput('GITHUB_TOKEN')
+    const octokit = github.getOctokit(token)
+    const context = github.context
+    const owner = github.context.repo.owner
+    const repo = github.context.repo.repo
+    const pullNumber = context.payload.pull_request.number
+    const headBranch = context.payload.pull_request.head.ref
+    const baseBranch = context.payload.pull_request.base.ref
+    const actor = context.payload.actor
 
-    try {
-        const prefixes = core.getInput("prefixes")
-        const refBranch = core.getInput("refBranch")
-        const token = core.getInput("GITHUB_TOKEN")
-        const octokit = github.getOctokit(token)
-        const context = github.context
-        const owner = github.context.repo.owner
-        const repo = github.context.repo.repo
-        const pullNumber = context.payload.pull_request.number
-        const headBranch = context.payload.pull_request.head.ref
-        const baseBranch = context.payload.pull_request.base.ref
+    const prefixArray = prefixes.split(',')
 
-        console.log('GITHUB_TOKEN: ' + token)
-        console.log('owner: ' + owner)
-        console.log('repo: ' + repo)
-        console.log('prefixes: ' + prefixes)
-        console.log('refBranch: ' + refBranch)
-        console.log('pullNumber: ' + pullNumber)
-        console.log('headBranch: ' + headBranch)
-        console.log('baseBranch: ' + baseBranch)
+    console.log('GITHUB_TOKEN: ' + token)
+    console.log('owner: ' + owner)
+    console.log('repo: ' + repo)
+    console.log('actor: ' + actor)
+    console.log('prefixes: ' + prefixes)
+    console.log('prefixArray: ', prefixArray)
+    console.log('refBranch: ' + refBranch)
+    console.log('pullNumber: ' + pullNumber)
+    console.log('headBranch: ' + headBranch)
+    console.log('baseBranch: ' + baseBranch)
 
-        console.log(context)
-        const res = await getPullRequest(pullNumber, owner, repo, octokit)
-        console.log('res: ')
-        console.log(res)
-        console.log('mergeable: '+ res.data.mergeable)
-        console.log('mergeable_state: '+ res.data.mergeable_state)
-        const repository = {
-            "owner": owner,
-            "repo": repo
-        }
+    console.log(context)
 
-        cascadingBranchMerge(
-            [prefixes],        // array of prefixes
-            refBranch,
-            headBranch,
-            baseBranch,
-            repository,
-            octokit,
-            pullNumber
-        )
-        
-    } catch (e) {
-        console.log(e)
+    const repository = {
+      owner,
+      repo
     }
+    if (context.payload.pull_request.merged) {
+      cascadingBranchMerge(
+        prefixArray,
+        refBranch,
+        headBranch,
+        baseBranch,
+        repository,
+        octokit,
+        pullNumber,
+        actor
+      )
+    } else {
+      console.log('PR was not merged. Skipping cascade.')
+    }
+  } catch (e) {
+    console.log(e)
+  }
 }
 
 // Entrypoint
 exec()
+
 })();
 
 module.exports = __webpack_exports__;
