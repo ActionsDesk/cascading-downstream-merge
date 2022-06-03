@@ -41,7 +41,6 @@ async function cascadingBranchMerge (
     repo: repository.repo,
     per_page: 100
   })).data
-
   console.log('branches:', branches)
 
   let mergeListHead = []
@@ -66,6 +65,8 @@ async function cascadingBranchMerge (
       mergeListBase = getBranchMergeOrder(prefix, baseBranch, branches)
     }
   })
+  console.log("mergeListHead:", mergeListHead)
+  console.log("mergeListBase:", mergeListBase)
 
   mergeLists[0] = mergeListHead
   mergeLists[1] = mergeListBase

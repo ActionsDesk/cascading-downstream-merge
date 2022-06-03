@@ -7,7 +7,7 @@
     "doc": "docs"
   },
   "scripts": {
-    "build": "npx @vercel/ncc build src/index.js --out dist",
+    "build": "ncc build src/index.js",
     "test": "jest",
     "test:watch": "npm run test -- --watchAll"
   },
@@ -20,7 +20,8 @@
     "coveragePathIgnorePatterns": [
       "/node_modules/",
       "/test/",
-      "/test/tmp/"
+      "/test/tmp/",
+      "dist/"
     ],
     "coverageThreshold": {
       "global": {
@@ -48,5 +49,9 @@
     "@actions/github": "^5.0.3",
     "@octokit/action": "^3.18.1",
     "nodemon": "^2.0.16"
+  },
+  "devDependencies": {
+    "babel-jest": "^22.4.3",
+    "jest": "^28.1.0"
   }
 }
