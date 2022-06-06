@@ -8,7 +8,8 @@
   },
   "scripts": {
     "test": "jest",
-    "test:watch": "npm run test -- --watchAll"
+    "test:watch": "npm run test -- --watchAll",
+    "prepare": "husky install"
   },
   "jest": {
     "testRegex": "(test/.*(test)\\.js)",
@@ -47,5 +48,8 @@
     "@actions/github": "^5.0.3",
     "@octokit/action": "^3.18.1",
     "nodemon": "^2.0.16"
+  },
+  "devDependencies": {
+    "husky": "^8.0.1"
   }
 }
