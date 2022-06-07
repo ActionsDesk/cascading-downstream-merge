@@ -12,17 +12,17 @@ async function exec () {
     const refBranch = core.getInput('refBranch')
     const github_token = core.getInput('GITHUB_TOKEN')
     const merge_token = core.getInput('MERGE_TOKEN')
-    
+
     const octokit = github.getOctokit(github_token)
-    
+
     let merge_octokit
     if (merge_token) {
-      console.log("Got a merge token. Creating seperate octokit object.")
+      console.log('Got a merge token. Creating seperate octokit object.')
       merge_octokit = github.getOctokit(merge_token)
     } else {
       merge_octokit = octokit
     }
-    
+
     const context = github.context
     const owner = github.context.repo.owner
     const repo = github.context.repo.repo
