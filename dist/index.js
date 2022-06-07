@@ -8844,7 +8844,7 @@ async function cascadingBranchMerge (
       // MERGE the PR
       // -----------------------------------------------------------------------------------------------------------------
       try {
-        await octokit.rest.pulls.merge({
+        await merge_octokit.rest.pulls.merge({
           owner: repository.owner,
           repo: repository.repo,
           pull_number: res.data.number
@@ -8907,7 +8907,7 @@ async function cascadingBranchMerge (
       })
 
       // MERGE the PR
-      await octokit.rest.pulls.merge({
+      await merge_octokit.rest.pulls.merge({
         owner: repository.owner,
         repo: repository.repo,
         pull_number: ref.data.number
@@ -12463,6 +12463,9 @@ async function exec () {
     const refBranch = core.getInput('refBranch')
     const github_token = core.getInput('GITHUB_TOKEN')
     const merge_token = core.getInput('MERGE_TOKEN')
+    
+    const octokit = github.getOctokit(github_token)
+    
     let merge_octokit
     if (merge_token) {
       console.log("Got a merge token. Creating seperate octokit object.")
@@ -12470,7 +12473,7 @@ async function exec () {
     } else {
       merge_octokit = octokit
     }
-    const octokit = github.getOctokit(github_token)
+    
     const context = github.context
     const owner = github.context.repo.owner
     const repo = github.context.repo.repo
