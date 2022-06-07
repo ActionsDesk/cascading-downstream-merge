@@ -33,7 +33,7 @@ async function cascadingBranchMerge (
   baseBranch,
   repository,
   octokit,
-  merge_octokit,
+  mergeOctokit,
   pullNumber,
   actor
 ) {
@@ -148,7 +148,7 @@ async function cascadingBranchMerge (
       // MERGE the PR
       // -----------------------------------------------------------------------------------------------------------------
       try {
-        await merge_octokit.rest.pulls.merge({
+        await mergeOctokit.rest.pulls.merge({
           owner: repository.owner,
           repo: repository.repo,
           pull_number: res.data.number
@@ -211,7 +211,7 @@ async function cascadingBranchMerge (
       })
 
       // MERGE the PR
-      await merge_octokit.rest.pulls.merge({
+      await mergeOctokit.rest.pulls.merge({
         owner: repository.owner,
         repo: repository.repo,
         pull_number: ref.data.number
