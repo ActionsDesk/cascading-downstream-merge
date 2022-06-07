@@ -33,6 +33,7 @@ async function cascadingBranchMerge (
   baseBranch,
   repository,
   octokit,
+  merge_octokit,
   pullNumber,
   actor
 ) {

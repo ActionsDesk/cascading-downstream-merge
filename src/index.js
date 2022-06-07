@@ -10,8 +10,16 @@ async function exec () {
   try {
     const prefixes = core.getInput('prefixes')
     const refBranch = core.getInput('refBranch')
-    const token = core.getInput('GITHUB_TOKEN')
-    const octokit = github.getOctokit(token)
+    const github_token = core.getInput('GITHUB_TOKEN')
+    const merge_token = core.getInput('MERGE_TOKEN')
+    let merge_octokit
+    if (merge_token) {
+      console.log("Got a merge token. Creating seperate octokit object.")
+      merge_octokit = github.getOctokit(merge_token)
+    } else {
+      merge_octokit = octokit
+    }
+    const octokit = github.getOctokit(github_token)
     const context = github.context
     const owner = github.context.repo.owner
     const repo = github.context.repo.repo
@@ -22,7 +30,6 @@ async function exec () {
 
     const prefixArray = prefixes.split(',')
 
-    console.log('GITHUB_TOKEN: ' + token)
     console.log('owner: ' + owner)
     console.log('repo: ' + repo)
     console.log('actor: ' + actor)
@@ -47,6 +54,7 @@ async function exec () {
         baseBranch,
         repository,
         octokit,
+        merge_octokit,
         pullNumber,
         actor
       )
