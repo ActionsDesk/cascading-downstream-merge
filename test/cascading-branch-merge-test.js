@@ -1,4 +1,5 @@
 jest.mock('@actions/github')
+const { RequestError } = require("@octokit/request-error");
 const github = require('@actions/github')
 
 github.getOctokit = jest.fn().mockImplementation(() => {
@@ -32,6 +33,7 @@ github.getOctokit = jest.fn().mockImplementation(() => {
 describe('Cascade branch merge test', () => {
   let octokit
   let exampleRepo
+  let automerge
   beforeEach(() => {
     automerge = require('../src/cascading-branch-merge.js')
     octokit = new github.getOctokit('token')
@@ -49,6 +51,7 @@ describe('Cascade branch merge test', () => {
       'my-feature',
       'release/1.0',
       exampleRepo,
+      octokit,
       octokit,
       12,
       'handle'
@@ -98,4 +101,62 @@ describe('Cascade branch merge test', () => {
     
   })
 
+  test('Check no commits between opens issue', async () => {
+
+    const error = new RequestError( 'Validation Failed', 422, {
+      request: {
+        method: "POST",
+        url: "https://api.github.com/foo",
+        body: {
+          bar: "baz",
+        },
+        headers: {
+          authorization: "token secret123",
+        },
+      },
+      response: {
+        status: 422,
+        url: "https://api.github.com/foo",
+        headers: {
+          "x-github-request-id": "1:2:3:4",
+        },
+        data: {
+          message: "Validation Failed",
+          errors: [
+            {
+                "resource": "PullRequest",
+                "code": "custom",
+                "message": "No commits between main and main"
+            }
+        ],
+        }
+      },
+    });
+    
+    
+    octokit.rest.pulls.create.mockImplementation(() => {
+      throw error;
+    });
+
+    await automerge.cascadingBranchMerge(
+      ['release/'],
+      'main',
+      'my-feature',
+      'release/1.2',
+      exampleRepo,
+      octokit,
+      octokit,
+      12,
+      'handle'
+    )
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
+      {
+        "owner": "ActionsDesk",
+        "repo": "hello-world",
+        "issue_number": 12,
+        "body": expect.stringMatching(/.*there are no commits between.*/)
+      }
+    );
+
+  })
 })

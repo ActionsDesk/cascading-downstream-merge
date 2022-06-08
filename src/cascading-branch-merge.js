@@ -96,14 +96,15 @@ async function cascadingBranchMerge (
         })
       } catch (error) { // could not create the PR
         console.error(error)
+        const errorResponseData = error.response.data
 
-        if (error.status === 422 && error.errors[0].message.startsWith('No commits between')) {
+        if (error.status === 422 && errorResponseData.errors[0].message.startsWith('No commits between')) {
           // create a comment in the HEAD Branch PR
           await octokit.rest.issues.createComment({
             owner: repository.owner,
             repo: repository.repo,
             issue_number: pullNumber,
-            body: 'I Tried to create a cascading PR but encountered an issue, [' + error.errors[0].message + '] but I am going to continue the cascading merge'
+            body: `I Tried to create a cascading PR to merge ${mergeList[i]} into ${mergeList[i + 1]} but there are no commits between these branches. continueing the cascading merge.`
           })
           // goto the next PR iteration
           continue
@@ -113,7 +114,7 @@ async function cascadingBranchMerge (
             owner: repository.owner,
             repo: repository.repo,
             issue_number: pullNumber,
-            body: 'I Tried to create a cascading PR but encountered an issue, [' + error.errors[0].message + ']'
+            body: 'I Tried to create a cascading PR but encountered an issue, [' + error.errors[0] + ']'
           })
           break
         } else {
@@ -219,7 +220,7 @@ async function cascadingBranchMerge (
       })
     } catch (error) { // could not create the PR
       console.error(error)
-
+      const errorResponseData = error.response.data
       if (error.status === 405) {
         // put a comment in the original PR, noting that merging failed
         await octokit.rest.issues.createComment({
@@ -242,7 +243,7 @@ async function cascadingBranchMerge (
           owner: repository.owner,
           repo: repository.repo,
           issue_number: pullNumber,
-          body: 'I Tried to create a cascading PR but encountered an issue, [' + error.errors[0].message + ']'
+          body: 'I Tried to create a cascading PR but encountered an issue, [' + errorResponseData.errors[0].message + ']'
         })
       }
     }
