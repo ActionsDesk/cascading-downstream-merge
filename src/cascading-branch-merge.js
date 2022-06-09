@@ -81,7 +81,6 @@ async function cascadingBranchMerge (
     // Note: This loop handles multiple GitHub API calls as a single unit of work.
     for (let i = 0; i < mergeList.length - 1; i++) {
       let res
-
       // -----------------------------------------------------------------------------------------------------------------
       // CREATE a PR for the next subsequent merge
       // -----------------------------------------------------------------------------------------------------------------
@@ -104,17 +103,17 @@ async function cascadingBranchMerge (
             owner: repository.owner,
             repo: repository.repo,
             issue_number: pullNumber,
-            body: `I Tried to create a cascading PR to merge ${mergeList[i]} into ${mergeList[i + 1]} but there are no commits between these branches. continueing the cascading merge.`
+            body: `I Tried to create a cascading PR to merge ${mergeList[i]} into ${mergeList[i + 1]} but there are no commits between these branches. No action needed. continueing the cascading merge.`
           })
           // goto the next PR iteration
           continue
-        } else if (error.status === 422 && error.errors[0].message.startsWith('A pull request already exists')) {
+        } else if (error.status === 422 && errorResponseData.errors[0].message.startsWith('A pull request already exists')) {
           // put a comment in the original PR, noting that the cascading failed
           await octokit.rest.issues.createComment({
             owner: repository.owner,
             repo: repository.repo,
             issue_number: pullNumber,
-            body: 'I Tried to create a cascading PR but encountered an issue, [' + error.errors[0] + ']'
+            body: `I Tried to create a cascading PR to merge ${mergeList[i]} into ${mergeList[i + 1]} but there is already a pull request open.`
           })
           break
         } else {
@@ -123,15 +122,15 @@ async function cascadingBranchMerge (
             owner: repository.owner,
             repo: repository.repo,
             issue_number: pullNumber,
-            body: 'Tried to create a cascading PR but encountered an issue [' + error.errors[0].message + ']'
+            body: `Tried to create a cascading PR but encountered an issue: ${JSON.stringify(errorResponseData)}`
           })
           // create an Issue in the Repo. that the cascading failed
           await octokit.rest.issues.create({
             owner: repository.owner,
             repo: repository.repo,
             assignees: actor,
-            title: 'Problem with cascading Auto-Merge [ ' + error.errors[0].message + ']',
-            body: 'Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** [' + error.errors[0].message + ' ]'
+            title: 'Problem with cascading Auto-Merge',
+            body: `Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** ${JSON.stringify(errorResponseData)}`
           })
           // stop the cascading auto-merge
           break

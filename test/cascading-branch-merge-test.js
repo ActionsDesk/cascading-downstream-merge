@@ -22,7 +22,8 @@ github.getOctokit = jest.fn().mockImplementation(() => {
         merge: jest.fn().mockReturnValue({})
       },
       issues: {
-        createComment: jest.fn().mockReturnValue({})
+        createComment: jest.fn().mockReturnValue({}),
+        create: jest.fn().mockReturnValue({})
       }
     }
   }
@@ -57,7 +58,7 @@ describe('Cascade branch merge test', () => {
       'handle'
     )
 
-    expect.assertions(6)
+    expect.assertions(7)
 
     expect(octokit.rest.repos.listBranches).toHaveBeenCalledWith(
       {
@@ -99,9 +100,11 @@ describe('Cascade branch merge test', () => {
     );
     expect(octokit.rest.issues.createComment).toHaveBeenCalledTimes(3)
     
+    expect(octokit.rest.issues.create).not.toHaveBeenCalled()
+    
   })
 
-  test('Check no commits between opens issue', async () => {
+  test('Check create PR no commits between adds comment and continues', async () => {
 
     const error = new RequestError( 'Validation Failed', 422, {
       request: {
@@ -124,8 +127,6 @@ describe('Cascade branch merge test', () => {
           message: "Validation Failed",
           errors: [
             {
-                "resource": "PullRequest",
-                "code": "custom",
                 "message": "No commits between main and main"
             }
         ],
@@ -133,10 +134,9 @@ describe('Cascade branch merge test', () => {
       },
     });
     
-    
-    octokit.rest.pulls.create.mockImplementation(() => {
-      throw error;
-    });
+    octokit.rest.pulls.create.mockRejectedValueOnce(error).mockReturnValueOnce({
+      data: {number: 13}
+    })
 
     await automerge.cascadingBranchMerge(
       ['release/'],
@@ -149,6 +149,12 @@ describe('Cascade branch merge test', () => {
       12,
       'handle'
     )
+
+    expect.assertions(5)
+
+    expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(2)
+
+    // Create "no commits between" comment on original PR
     expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
       {
         "owner": "ActionsDesk",
@@ -158,5 +164,187 @@ describe('Cascade branch merge test', () => {
       }
     );
 
+    // Create comment for merge into head branch (main)
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
+      {
+        "owner": "ActionsDesk",
+        "repo": "hello-world",
+        "issue_number": 12,
+        "body": expect.stringMatching(/.*Created cascading Auto-Merge.*/)
+      }
+    );
+
+    expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(2)
+    
+    expect(octokit.rest.issues.create).not.toHaveBeenCalled()
+    
+
   })
+
+  test('Check create PR already exists addes a comment and breaks', async () => {
+
+    const error = new RequestError( 'Validation Failed', 422, {
+      request: {
+        method: "POST",
+        url: "https://api.github.com/foo",
+        body: {
+          bar: "baz",
+        },
+        headers: {
+          authorization: "token secret123",
+        },
+      },
+      response: {
+        status: 422,
+        url: "https://api.github.com/foo",
+        headers: {
+          "x-github-request-id": "1:2:3:4",
+        },
+        data: {
+          message: "Validation Failed",
+          errors: [
+            {
+                "message": "A pull request already exists"
+            }
+        ],
+        }
+      },
+    });
+    
+    octokit.rest.pulls.create.mockRejectedValueOnce(error).mockReturnValueOnce({
+      data: {number: 13}
+    })
+
+    await automerge.cascadingBranchMerge(
+      ['release/'],
+      'main',
+      'my-feature',
+      'release/1.0',
+      exampleRepo,
+      octokit,
+      octokit,
+      12,
+      'handle'
+    )
+
+    expect.assertions(5)
+
+    expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(2)
+
+    // Create "no commits between" comment on original PR
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
+      {
+        "owner": "ActionsDesk",
+        "repo": "hello-world",
+        "issue_number": 12,
+        "body": expect.stringMatching(/.*already a pull request open/)
+      }
+    );
+
+    // Create comment for merge into head branch (main)
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
+      {
+        "owner": "ActionsDesk",
+        "repo": "hello-world",
+        "issue_number": 12,
+        "body": expect.stringMatching(/.*Created cascading Auto-Merge.*/)
+      }
+    );
+
+    expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(2)
+    
+    expect(octokit.rest.issues.create).not.toHaveBeenCalled()
+    
+  })
+
+  test('Check create PR unhandled error adds a comment, opens an issue, breaks, and merges into ref branch', async () => {
+
+    const error = new RequestError( 'Validation Failed', 500, {
+      request: {
+        method: "POST",
+        url: "https://api.github.com/foo",
+        body: {
+          bar: "baz",
+        },
+        headers: {
+          authorization: "token secret123",
+        },
+      },
+      response: {
+        status: 500,
+        url: "https://api.github.com/foo",
+        headers: {
+          "x-github-request-id": "1:2:3:4",
+        },
+        data: {
+          message: "Some Unhandled Error",
+          errors: [
+            {
+                "message": "Unhandled Exception"
+            }
+        ],
+        }
+      },
+    });
+    
+    octokit.rest.pulls.create.mockRejectedValueOnce(error).mockReturnValueOnce({
+      data: {number: 13}
+    })
+
+    await automerge.cascadingBranchMerge(
+      ['release/'],
+      'main',
+      'my-feature',
+      'release/1.0',
+      exampleRepo,
+      octokit,
+      octokit,
+      12,
+      'handle'
+    )
+
+    expect.assertions(6)
+
+
+
+    // Create "no commits between" comment on original PR
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
+      {
+        "owner": "ActionsDesk",
+        "repo": "hello-world",
+        "issue_number": 12,
+        "body": expect.stringMatching(/.*Some Unhandled Error.*/)
+      }
+    );
+
+    // Create comment for merge into head branch (main)
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
+      {
+        "owner": "ActionsDesk",
+        "repo": "hello-world",
+        "issue_number": 12,
+        "body": expect.stringMatching(/.*Created cascading Auto-Merge.*/)
+      }
+    );
+    
+    // 
+    expect(octokit.rest.issues.create).toHaveBeenCalledWith(
+      {
+        "owner": "ActionsDesk",
+        "repo": "hello-world",
+        "assignees": 'handle',
+        "title": "Problem with cascading Auto-Merge",
+        "body": expect.stringMatching(/.*Some Unhandled Error.*/)
+      }
+    );
+
+    expect(octokit.rest.issues.create).toHaveBeenCalledTimes(1)
+    
+    expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(2)
+
+    expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(2)
+    
+    
+  })
+  
 })
