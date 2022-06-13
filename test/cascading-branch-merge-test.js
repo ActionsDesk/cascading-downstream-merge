@@ -35,7 +35,7 @@ describe('Cascade branch merge test', () => {
   let automerge
   beforeEach(() => {
     automerge = require('../src/cascading-branch-merge.js')
-    octokit = new github.getOctokit('token')
+    octokit = github.getOctokit('token')
     exampleRepo = {
       owner: 'ActionsDesk',
       repo: 'hello-world'
