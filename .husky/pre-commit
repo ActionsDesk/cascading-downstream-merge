@@ -2,7 +2,7 @@
 
 . "$(dirname -- "$0")/_/husky.sh"
 
-if ! command -v ncc &> /dev/null
+if ! command -v ncc  > log 2>&1
 then
     npm i -g @vercel/ncc
 fi
