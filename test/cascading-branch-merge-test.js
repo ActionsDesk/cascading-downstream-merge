@@ -154,7 +154,6 @@ describe('Cascade branch merge test', () => {
 
     expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(2)
 
-    // Create "no commits between" comment on original PR
     expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
       {
         "owner": "ActionsDesk",
@@ -164,7 +163,6 @@ describe('Cascade branch merge test', () => {
       }
     );
 
-    // Create comment for merge into head branch (main)
     expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
       {
         "owner": "ActionsDesk",
@@ -181,7 +179,7 @@ describe('Cascade branch merge test', () => {
 
   })
 
-  test('Check create PR already exists addes a comment and breaks', async () => {
+  test('Check create PR already exists addes a comment and breaks and merges into ref branch', async () => {
 
     const error = new RequestError( 'Validation Failed', 422, {
       request: {
@@ -231,7 +229,6 @@ describe('Cascade branch merge test', () => {
 
     expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(2)
 
-    // Create "no commits between" comment on original PR
     expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
       {
         "owner": "ActionsDesk",
@@ -241,7 +238,6 @@ describe('Cascade branch merge test', () => {
       }
     );
 
-    // Create comment for merge into head branch (main)
     expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
       {
         "owner": "ActionsDesk",
@@ -303,11 +299,8 @@ describe('Cascade branch merge test', () => {
       'handle'
     )
 
-    expect.assertions(6)
+    expect.assertions(5)
 
-
-
-    // Create "no commits between" comment on original PR
     expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
       {
         "owner": "ActionsDesk",
@@ -317,7 +310,6 @@ describe('Cascade branch merge test', () => {
       }
     );
 
-    // Create comment for merge into head branch (main)
     expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
       {
         "owner": "ActionsDesk",
@@ -327,7 +319,6 @@ describe('Cascade branch merge test', () => {
       }
     );
     
-    // 
     expect(octokit.rest.issues.create).toHaveBeenCalledWith(
       {
         "owner": "ActionsDesk",
@@ -342,8 +333,122 @@ describe('Cascade branch merge test', () => {
     
     expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(2)
 
-    expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(2)
     
+    
+  })
+
+
+  test('Check merge PR conflict opens issues in both cascade and ref merge', async () => {
+
+    const error = new RequestError( 'Validation Failed', 405, {
+      request: {
+        method: "POST",
+        url: "https://api.github.com/merge",
+        body: {
+          bar: "baz",
+        },
+        headers: {
+          authorization: "token secret123",
+        },
+      },
+      response: {
+        status: 405,
+        url: "https://api.github.com/merge",
+        headers: {
+          "x-github-request-id": "1:2:3:4",
+        },
+        data: {
+          message: "Merge conflict",
+          errors: [
+            {
+                "message": "Merge conflict"
+            }
+        ],
+        }
+      },
+    });
+    
+    octokit.rest.pulls.merge.mockRejectedValue(error)
+
+    octokit.rest.pulls.create.mockReturnValueOnce({data: {number: 13}}).mockReturnValueOnce({data: {number: 14}})
+
+    await automerge.cascadingBranchMerge(
+      ['release/'],
+      'main',
+      'my-feature',
+      'release/1.2',
+      exampleRepo,
+      octokit,
+      octokit,
+      12,
+      'handle'
+    )
+
+    expect.assertions(7)
+
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
+      {
+        "owner": "ActionsDesk",
+        "repo": "hello-world",
+        "issue_number": 12,
+        "body": expect.stringMatching(/.*PR #13 Ran into a merge conflict.*/)
+      }
+    );
+
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
+      {
+        "owner": "ActionsDesk",
+        "repo": "hello-world",
+        "issue_number": 12,
+        "body": expect.stringMatching(/.*PR #14 Ran into a merge conflict.*/)
+      }
+    );
+    
+    expect(octokit.rest.issues.create).toHaveBeenCalledWith(
+      {
+        "owner": "ActionsDesk",
+        "repo": "hello-world",
+        "assignees": 'handle',
+        "title": "Problem with cascading Auto-Merge. Ran into a merge conflict.",
+        "body": expect.stringMatching(/.*PR #13.*/)
+      }
+    );
+
+    expect(octokit.rest.issues.create).toHaveBeenCalledWith(
+      {
+        "owner": "ActionsDesk",
+        "repo": "hello-world",
+        "assignees": 'handle',
+        "title": "Problem with cascading Auto-Merge. Ran into a merge conflict.",
+        "body": expect.stringMatching(/.*PR #14.*/)
+      }
+    );
+
+    expect(octokit.rest.issues.create).toHaveBeenCalledTimes(2)
+    
+    expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(2)
+
+    expect(octokit.rest.pulls.merge).toHaveBeenCalledTimes(2)
+    
+    
+  })
+
+  test('getBranchMergeOrder returns ordered branches with semantic year branch name', async () => {
+    const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder');
+    let response = await getBranchMergeOrder(
+     'release/',
+     'release/2022.02',
+     [{name: 'release/2022.02'}, {name: 'feature/10.2'}, {name: 'release/2022.01'}, {name: 'release/2022.02.4'}, {name: 'release/2022.05'}, {name: 'release/2023.05'}, {name: 'release-123'}]
+    )
+    expect.assertions(1)
+
+    expect(response).toEqual([
+      "release/2022.02",
+      "release/2022.02.4",
+      "release/2022.05",
+      "release/2023.05",
+    ])
+
     
   })
   
