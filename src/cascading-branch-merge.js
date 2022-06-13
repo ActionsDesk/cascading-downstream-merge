@@ -66,8 +66,8 @@ async function cascadingBranchMerge (
       mergeListBase = getBranchMergeOrder(prefix, baseBranch, branches)
     }
   })
-  console.log("mergeListHead:", mergeListHead)
-  console.log("mergeListBase:", mergeListBase)
+  console.log('mergeListHead:', mergeListHead)
+  console.log('mergeListBase:', mergeListBase)
 
   mergeLists[0] = mergeListHead
   mergeLists[1] = mergeListBase
