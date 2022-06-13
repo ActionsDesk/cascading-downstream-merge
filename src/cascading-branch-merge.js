@@ -347,7 +347,7 @@ function semanticVersionToArray (vStr) {
   const av = []
   // 1.1.rc.1
   // "release/1.1-rc.1"  -->  ['1','1-rc','1']
-  const avTemp = vStr.split('/')[1].split('.')
+  const avTemp = vStr.split('/')[1].split(/_|\./)
 
   avTemp.forEach(function (v, index) {
     // if version contains a 'pre-release' tag

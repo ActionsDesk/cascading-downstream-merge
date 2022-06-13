@@ -172,7 +172,7 @@ describe('Cascade branch merge test', () => {
     expect(octokit.rest.issues.create).not.toHaveBeenCalled()
   })
 
-  test('Check create PR already exists addes a comment and breaks and merges into ref branch', async () => {
+  test('Check create PR already exists adds a comment and breaks and merges into ref branch', async () => {
     const error = new RequestError('Validation Failed', 422, {
       request: {
         method: 'POST',
@@ -421,7 +421,15 @@ describe('Cascade branch merge test', () => {
     const response = await getBranchMergeOrder(
       'release/',
       'release/2022.02',
-      [{ name: 'release/2022.02' }, { name: 'feature/10.2' }, { name: 'release/2022.01' }, { name: 'release/2022.02.4' }, { name: 'release/2022.05' }, { name: 'release/2023.05' }, { name: 'release-123' }]
+      [
+        { name: 'release/2022.02' },
+        { name: 'feature/10.2' },
+        { name: 'release/2022.01' },
+        { name: 'release/2022.02.4' },
+        { name: 'release/2022.05' },
+        { name: 'release/2023.05' },
+        { name: 'release-123' }
+      ]
     )
     expect.assertions(1)
 
@@ -430,6 +438,54 @@ describe('Cascade branch merge test', () => {
       'release/2022.02.4',
       'release/2022.05',
       'release/2023.05'
+    ])
+  })
+
+  test('getBranchMergeOrder returns ordered branches with semantic year branch name with underscore', async () => {
+    const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
+    const response = await getBranchMergeOrder(
+      'release/',
+      'release/2022_06',
+      [
+        { name: 'release/2022_02' },
+        { name: 'release/2022_02_4' },
+        { name: 'release/2022_05' },
+        { name: 'release/2022_07' },
+        { name: 'release/2022_06' },
+        { name: 'release/2023_05' }
+      ]
+    )
+    expect.assertions(1)
+
+    expect(response).toEqual([
+      'release/2022_06',
+      'release/2022_07',
+      'release/2023_05'
+    ])
+  })
+
+  test('getBranchMergeOrder returns ordered branches with semantic year branch name with underscore or periods', async () => {
+    const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
+    const response = await getBranchMergeOrder(
+      'release/',
+      'release/2022_06',
+      [
+        { name: 'release/2023_05' },
+        { name: 'release/2022_05' },
+        { name: 'release/2022_07' },
+        { name: 'release/2022_02_4' },
+        { name: 'release/2022_02' },
+        { name: 'release/2022_06' },
+        { name: 'release/2022.08' }
+      ]
+    )
+    expect.assertions(1)
+
+    expect(response).toEqual([
+      'release/2022_06',
+      'release/2022_07',
+      'release/2022.08',
+      'release/2023_05'
     ])
   })
 })
