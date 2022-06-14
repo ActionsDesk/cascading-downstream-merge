@@ -56,3 +56,4 @@ jobs:
           FILTER_REGEX_EXCLUDE: .*dist/*
           JSCPD_CONFIG_FILE: .jscpd.json
           VALIDATE_JSCPD: false
+          VALIDATE_BASH: false

@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+
+. "$(dirname -- "$0")/_/husky.sh"
+
+if ! command -v ncc  > log 2>&1
+then
+    npm i -g @vercel/ncc
+fi
+
+ncc build src/index.js --license LICENSE
+git add dist/index.js dist/LICENSE
