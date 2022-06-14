@@ -1,6 +1,6 @@
 # Cascading Auto Merge Action
 
-This document provides information on the Cascading Auto-Merge Action. 
+This document provides information on the Cascading Auto-Merge Action.
 
 This Action auto-merges release branches based on their semantic versioning, similar to [Bitbuckets 'Automatic branch merging'](https://confluence.atlassian.com/bitbucketserver/automatic-branch-merging-776639993.html).
 
@@ -44,7 +44,7 @@ To explain the **Cascading Auto Merge** functionality a little bit more detailed
 
  - In the original GitHub PR you will see comments for each subsequent cascading merge PR, including links to these PRs, providing a full audit trail of automated merges.
  
-    Below is a sample output of a test run. 
+    Below is a sample output of a test run.
 
     ![Screen Shot 2020-02-06 at 12 10 10 AM](https://user-images.githubusercontent.com/863198/74079847-f3e1a080-4a0a-11ea-817d-8d27be36dcb7.png)
 
@@ -59,10 +59,10 @@ Reference: [Semantic Versioning](https://semver.org/)
 ### A semantic version number - MAJOR.MINOR.PATCH
 
 - **MAJOR** version when you make incompatible API changes
-- **MINOR** version when you add functionality in a backwards compatible manner
-- **PATCH** version when you make backwards compatible bug fixes
+- **MINOR** version when you add functionality in a backward compatible manner
+- **PATCH** version when you make backward compatible bugfixes
 
-### Additional labels for pre-release and build metadata
+### Additional labels for prerelease and build metadata
 
 These are available as extensions to the MAJOR.MINOR.PATCH format.
 
@@ -76,7 +76,7 @@ These are available as extensions to the MAJOR.MINOR.PATCH format.
 
 ### \<Branch-Prefix>/\<MAJOR>.\<MINOR>.\<PATCH>-[ alpha | beta | rc ].\<version>
 
-> The *Branch-Prefix* is specific to our implementation 
+> The *Branch-Prefix* is specific to our implementation
 
 ---
 
@@ -90,7 +90,7 @@ In these examples we omit the *Branch-Prefix*
 |---|
 | 1.1.0 < 1.1.2 < 1.2.0 < 1.2.1 < 1.3.0 < 2.0.0 |
 
-#### Pre-release fields
+#### Prerelease fields
 
 |Example|
 |---|
