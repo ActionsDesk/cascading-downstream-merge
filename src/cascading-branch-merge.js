@@ -128,7 +128,7 @@ async function cascadingBranchMerge (
           await octokit.rest.issues.create({
             owner: repository.owner,
             repo: repository.repo,
-            assignees: actor,
+            assignees: [actor],
             title: 'Problem with cascading Auto-Merge',
             body: `Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** ${JSON.stringify(errorResponseData)}`
           })
@@ -170,7 +170,7 @@ async function cascadingBranchMerge (
           await octokit.rest.issues.create({
             owner: repository.owner,
             repo: repository.repo,
-            assignees: actor,
+            assignees: [actor],
             title: 'Problem with cascading Auto-Merge. Ran into a merge conflict.',
             body: 'Issue with cascading auto-merge, please try to resolve the merge conflict issue. **Cascading Auto-Merge has been stopped!** - PR #' + res.data.number
           })
@@ -180,7 +180,7 @@ async function cascadingBranchMerge (
           await octokit.rest.issues.create({
             owner: repository.owner,
             repo: repository.repo,
-            assignees: actor,
+            assignees: [actor],
             title: `Problem with cascading Auto-Merge ${JSON.stringify(errorResponseData)}`,
             body: 'Issue with a PR created by cascading auto-merge, please try to resolve the Issue. **Cascading Auto-Merge has been stopped!**'
           })
@@ -233,7 +233,7 @@ async function cascadingBranchMerge (
         await octokit.rest.issues.create({
           owner: repository.owner,
           repo: repository.repo,
-          assignees: actor,
+          assignees: [actor],
           title: 'Problem with cascading Auto-Merge. Ran into a merge conflict.',
           body: 'Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** - PR #' + ref.data.number
         })

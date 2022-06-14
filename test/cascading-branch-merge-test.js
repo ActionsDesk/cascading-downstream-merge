@@ -313,7 +313,7 @@ describe('Cascade branch merge test', () => {
       {
         owner: 'ActionsDesk',
         repo: 'hello-world',
-        assignees: 'handle',
+        assignees: ['handle'],
         title: 'Problem with cascading Auto-Merge',
         body: expect.stringMatching(/.*Some Unhandled Error.*/)
       }
@@ -393,7 +393,7 @@ describe('Cascade branch merge test', () => {
       {
         owner: 'ActionsDesk',
         repo: 'hello-world',
-        assignees: 'handle',
+        assignees: ['handle'],
         title: 'Problem with cascading Auto-Merge. Ran into a merge conflict.',
         body: expect.stringMatching(/.*PR #13.*/)
       }
@@ -403,7 +403,7 @@ describe('Cascade branch merge test', () => {
       {
         owner: 'ActionsDesk',
         repo: 'hello-world',
-        assignees: 'handle',
+        assignees: ['handle'],
         title: 'Problem with cascading Auto-Merge. Ran into a merge conflict.',
         body: expect.stringMatching(/.*PR #14.*/)
       }

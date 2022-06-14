@@ -29,7 +29,7 @@ async function exec () {
     const pullNumber = context.payload.pull_request.number
     const headBranch = context.payload.pull_request.head.ref
     const baseBranch = context.payload.pull_request.base.ref
-    const actor = context.payload.actor
+    const actor = context.actor
 
     const prefixArray = prefixes.split(',')
 
