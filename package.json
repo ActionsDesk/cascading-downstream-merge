@@ -7,7 +7,7 @@
     "doc": "docs"
   },
   "scripts": {
-    "build": "ncc build src/index.js",
+    "build": "npx @vercel/ncc build src/index.js --out dist",
     "test": "jest",
     "test:watch": "npm run test -- --watchAll",
     "prepare": "husky install"
