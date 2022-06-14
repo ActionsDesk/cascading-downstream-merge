@@ -1,16 +1,8 @@
-# Extending the Probot Auto-Merge App with a Cascading Release Merge Feature
+# Cascading Auto Merge Action
 
-This document provides information on the Cascading Auto-Merge extension to the open source Probot auto-merge app, merging
-release branches based on their semantic versioning, similar to [Bitbuckets 'Automatic branch merging'](https://confluence.atlassian.com/bitbucketserver/automatic-branch-merging-776639993.html).
+This document provides information on the Cascading Auto-Merge Action. 
 
----
-## TOC
-- [Description](#Description)
-- [Use-case](#Use-case)
-- [Supported-Branch-Versioning](#Supported-Branch-Versioning)
-  - [Version-Syntax](#Version-Syntax)
-- [Auto-Merge-Rules](#Auto-Merge-Rules)
-- [Merge-Scenarios](#Merge-Scenarios)
+This Action auto-merges release branches based on their semantic versioning, similar to [Bitbuckets 'Automatic branch merging'](https://confluence.atlassian.com/bitbucketserver/automatic-branch-merging-776639993.html).
 
 ---
 
@@ -18,7 +10,6 @@ release branches based on their semantic versioning, similar to [Bitbuckets 'Aut
 
 The **Cascading Auto Merge** feature is applicable per repository, it can be enabled on branch prefixes and supports semantic versioning.
 
-[top](#TOC) :arrow_up:
 ## Use-case
 
 To explain the **Cascading Auto Merge** functionality a little bit more detailed, I'll give some example.
@@ -56,8 +47,6 @@ To explain the **Cascading Auto Merge** functionality a little bit more detailed
     Below is a sample output of a test run. 
 
     ![Screen Shot 2020-02-06 at 12 10 10 AM](https://user-images.githubusercontent.com/863198/74079847-f3e1a080-4a0a-11ea-817d-8d27be36dcb7.png)
-
-[top](#TOC) :arrow_up:
 
 ---
 
@@ -114,7 +103,5 @@ In these examples we omit the *Branch-Prefix*
 - release/1.1.0
 - release/1.2.0-beta
 - feature/1.1.0-alpha.1
-
-[top](#TOC) :arrow_up:
 
 ---
