@@ -6,7 +6,6 @@ release branches based on their semantic versioning, similar to [Bitbuckets 'Aut
 ---
 ## TOC
 - [Description](#Description)
-  - [Comparison-Matrix](#Comparison-Matrix)
 - [Use-case](#Use-case)
 - [Supported-Branch-Versioning](#Supported-Branch-Versioning)
   - [Version-Syntax](#Version-Syntax)
@@ -18,26 +17,6 @@ release branches based on their semantic versioning, similar to [Bitbuckets 'Aut
 ## Description
 
 The **Cascading Auto Merge** feature is applicable per repository, it can be enabled on branch prefixes and supports semantic versioning.
-
-The open source [probot-auto-merge](https://github.com/bobvanderlinden/probot-auto-merge) solution
-has the core Auto Merge capability with fine grained control on the enablement / trigger options, but it
-does not currently support the cascading auto-merge, the way [BitBucket Auto Merge](https://confluence.atlassian.com/bitbucketserver/automatic-branch-merging-776639993.html)
-provides it. That is where this `cascading auto-merge` extension comes in.
-
-Below is a list that highlights some of the features for each implementation.
-
-### Comparison-Matrix
-
-| # | Features | BitBucket | Probot-Auto-Merge | Notes |
-|---|---|---|---|---|
-|1|Automatic merging is off by default| :white_check_mark: | :white_check_mark: | |
-|2|Commit messages will indicate a merge was automatic| :white_check_mark: | :white_check_mark: | |
-|3|There are audit log entries for automatic merges| :white_check_mark: | :white_check_mark: | Each Merge is based on a PR|
-|4|Notifications are sent when merges succeed or fail| :white_check_mark: | :white_check_mark: | Utilizing standard GitHub behavior|
-|5|Cascading Branch merging| :white_check_mark: | :white_check_mark: | |
-|6|Only branches matching the name of the pull request target are added into the merge path| :white_check_mark: | :white_check_mark: | branch name prefix |
-|7|Custom activation of AutoMerge per Branch | | :white_check_mark: | GitHub Labels |
-|8|Fine grained 'Approver' rules| | :white_check_mark: | |
 
 [top](#TOC) :arrow_up:
 ## Use-case
@@ -139,60 +118,3 @@ In these examples we omit the *Branch-Prefix*
 [top](#TOC) :arrow_up:
 
 ---
-
-## Auto-Merge-Rules
-
-The following is a little bit like a Rules engine, we have our **facts** (create, merge), that in combination define certain 
-**conditions** and the determined outcome of these conditions form a **rule**. 
-The table describes the core **rules**.
-
-With this definition we can predict the outcome of sample [Merge-Scenarios](#Merge-Scenarios).
-
-#### Legend:
-
-:white_check_mark: success
-
-:x: failed
-
-| # |Original PR       |                  |Cascading PR      |                  |Condition                  |Actions             |                    |                                         |
-|---|---               |---               |---               |---               |---                        |---                 |---                 |---                                      |
-|   |create            |merge             |create            |merge             |                           |Issue               |Cascading-Auto-Merge|Notes                                    |
-|1  |:white_check_mark:|:white_check_mark:|:white_check_mark:|:white_check_mark:|NA                         |none                |continue            |All good nothing to report               |
-|2  |:white_check_mark:|:white_check_mark:|:white_check_mark:|:x:               |NA                         |:white_check_mark:  |stop                |                                         |
-|3  |:white_check_mark:|:white_check_mark:|:x:               |NA                |A PR already exists        |:white_check_mark:  |stop                |a PR already exists cannot create new one|
-|4  |:white_check_mark:|:white_check_mark:|:x:               |NA                |No commits between releases|none                |continue            |commits might have already been merged   |
-|5  |:white_check_mark:|:x:               |NA                |NA                |Original PR merge conflict |none                |NA                  |Original PR contains all info            |
-|6  |:x:               |NA                |NA                |NA                |Nothing even happened      |none                |NA                  |Auto-Merge not triggered                 |
-
----
-
-## Merge-Scenarios
-
-A couple of merge scenarios and the resulting behavior of the **cascading auto-merge feature**. 
-
-#### Sample semantic release versions:  
-- master
-- development        
-- release/0.1 < release/1.1-rc.1 < release/1.1 < release/1.2 < release/2.0 < release/2.0.1-alpha < release/2.0.1-beta < release/2.0.1-beta.1
-
-> Note: omitting the prefix, 'release'
-
-#### Legend:
-
-:white_check_mark: successful merge
-
-:x: merge conflict
-
-| # | scenario           | description           | Parent PR merged status  | cascading PR merge status | Notification location    | Notes                                                                     |
-|---|--------------------|-----------------------|--------------------------|---------------------------|--------------------------|---------------------------------------------------------------------------|
-| 1 | 1.1 -> development | standard Git workflow | :white_check_mark:       | :white_check_mark:        | In Original PR (msg: created cascading PR # ) | all good, no additional action required                                   |
-| 2 | 1.1 -> development | standard Git workflow | :white_check_mark:       | :x:                       | In Original PR (msg: created cascading PR #), create failed merge issue | cascading merge halts, completed merges remain |
-| 3 | 1.1 -> development | standard Git workflow | :x:                      | :x:                       | In Original PR, (msg: merge conflict)         | no cascading merge triggered                                              |
-| 4 | 1.1 -> 1.2         | release to release    | :white_check_mark:       | :white_check_mark:        | In Original PR (msg: no commit for PR)        | merge base (1.2) is in cascading merge, App will try to execute twice, safe  |
-| 5 | 1.1 -> 1.2         | release to release    | :white_check_mark:       | :x:                       | In Original PR (msg: created cascading PR #), create failed merge issue | cascading merge halts, completed merges remain |
-| 6 | 1.1 -> 1.2         | release to release    | :x:                      | :x:                       | In Original PR (msg: merge conflict)          | no cascading merge triggered                                              |
-| 7 | patch -> 1.1       | standard Git workflow | :white_check_mark:       | :x:                       | In Original PR, no comment about cascading PR | auto-merge triggers on 'head-branch' name only, if you require cascading merges, combine with scenario #4 |
-| 8 | 2.0.1-beta.1 -> development | standard Git workflow | :white_check_mark: | :x:                    | In Original PR, no comment about cascading PR | is latest release, no subsequent releases                                    |
-| 9 | 1.2 -> 1.1         | back porting a change | :white_check_mark:       | :white_check_mark:        | In Original PR (msg: created cascading PR #)  | cascading merge triggered, subsequent release will be merged, no different from merging to 'development' |                                  |
-
-[top](#TOC) :arrow_up:
