@@ -8611,14 +8611,2622 @@ module.exports.serializeInteger = function (integer) {
   return String(integer);
 };
 
-module.exports.parseURL = function (input, options) {
-  if (options === undefined) {
-    options = {};
-  }
+        // We don't handle blobs, so this just delegates:
+        return module.exports.basicURLParse(input, { baseURL: options.baseURL, encodingOverride: options.encodingOverride })
+      }
+      /***/ },
 
-  // We don't handle blobs, so this just delegates:
-  return module.exports.basicURLParse(input, { baseURL: options.baseURL, encodingOverride: options.encodingOverride });
-};
+    /***/ 9856:
+    /***/ (module) => {
+      'use strict'
+
+      module.exports.mixin = function mixin (target, source) {
+        const keys = Object.getOwnPropertyNames(source)
+        for (let i = 0; i < keys.length; ++i) {
+          Object.defineProperty(target, keys[i], Object.getOwnPropertyDescriptor(source, keys[i]))
+        }
+      }
+
+      module.exports.wrapperSymbol = Symbol('wrapper')
+      module.exports.implSymbol = Symbol('impl')
+
+      module.exports.wrapperForImpl = function (impl) {
+        return impl[module.exports.wrapperSymbol]
+      }
+
+      module.exports.implForWrapper = function (wrapper) {
+        return wrapper[module.exports.implSymbol]
+      }
+      /***/ },
+
+    /***/ 7067:
+    /***/ (module) => {
+      // Returns a wrapper function that returns a wrapped callback
+      // The wrapper function should do some stuff, and return a
+      // presumably different callback function.
+      // This makes sure that own properties are retained, so that
+      // decorations and such are not lost along the way.
+      module.exports = wrappy
+      function wrappy (fn, cb) {
+        if (fn && cb) return wrappy(fn)(cb)
+
+        if (typeof fn !== 'function') { throw new TypeError('need wrapper function') }
+
+        Object.keys(fn).forEach(function (k) {
+          wrapper[k] = fn[k]
+        })
+
+        return wrapper
+
+        function wrapper () {
+          const args = new Array(arguments.length)
+          for (let i = 0; i < args.length; i++) {
+            args[i] = arguments[i]
+          }
+          const ret = fn.apply(this, args)
+          const cb = args[args.length - 1]
+          if (typeof ret === 'function' && ret !== cb) {
+            Object.keys(cb).forEach(function (k) {
+              ret[k] = cb[k]
+            })
+          }
+          return ret
+        }
+      }
+      /***/ },
+
+    /***/ 3427:
+    /***/ (module) => {
+      /**
+ * @description This class contains the main "Cascading Auto-Merge" code.
+ *  Note: All the utility functions are kept within this class,
+ *        rather than putting it into the 'utility.ts' file.
+ *        That way all required components can be found in one place.
+ *        If we decide to contribute this code back 'upstream',
+ *        we can make a decision than on how to structure/refactor the code.
+ *
+ * TODO: This contains some 'boilerplate' code that can be optimized
+ *       possible functions: 'create-PR', 'create-Issue', 'create-Comment', 'merge-PR'
+ */
+
+      /**
+ * @function cascadingBranchMerge
+ * @description Merge all 'Release' branches by ascending order of their semantic version
+ *              Multiple GitHub API calls are being processed as a single transaction!
+ *              (despite the definition 'transaction', rollback is not automatic)
+ *
+ * @param prefixes
+ * @param refBranch
+ * @param headBranch
+ * @param baseBranch
+ * @param repository
+ * @param octokit
+ * @param pullNumber
+ * @param actor
+ */
+      async function cascadingBranchMerge (
+        prefixes,
+        refBranch,
+        headBranch,
+        baseBranch,
+        repository,
+        octokit,
+        mergeOctokit,
+        pullNumber,
+        actor
+      ) {
+        const branches = (await octokit.rest.repos.listBranches({
+          owner: repository.owner,
+          repo: repository.repo,
+          per_page: 100
+        })).data
+
+        console.log('branches:', branches)
+
+        let mergeListHead = []
+        let mergeListBase = []
+        const mergeLists = []
+        let mergeList = []
+        // create a list of branches that should be used for 'cascading-auto-merge'
+        // NOTE: if the current 'headBranch'- prefix is not in the configured prefix list
+        //       we get an empty list which basically results in '0' execution of the
+        //       'cascading-merge' loop
+        // -------------------------------------------------------------------------
+        // prefixes   = its the list of all 'prefixes' we have configured to use in cascading auto merge (auto-merge.yml)
+        // prefix     = the name of prefix name of the branch we care about
+        // headBranch = the "source" branch, the one we made changes to
+        // branches   = all branches of the Repository
+        prefixes.forEach(function (prefix) {
+          if (headBranch.startsWith(prefix)) {
+            mergeListHead = getBranchMergeOrder(prefix, headBranch, branches)
+          }
+
+          if (baseBranch.startsWith(prefix)) {
+            mergeListBase = getBranchMergeOrder(prefix, baseBranch, branches)
+          }
+        })
+
+        mergeLists[0] = mergeListHead
+        mergeLists[1] = mergeListBase
+
+        // Execute cascading merge (the key purpose of this function)
+        // Do it ones for each List (Head/Base)
+        for (let a = 0; a < 2; a++) {
+          mergeList = mergeLists[a]
+
+          // This has to happen sequentially, otherwise there is no commit to build the next PR on
+          // Note: This loop handles multiple GitHub API calls as a single unit of work.
+          for (let i = 0; i < mergeList.length - 1; i++) {
+            let res
+
+            // -----------------------------------------------------------------------------------------------------------------
+            // CREATE a PR for the next subsequent merge
+            // -----------------------------------------------------------------------------------------------------------------
+            try {
+              res = await octokit.rest.pulls.create({
+                owner: repository.owner,
+                repo: repository.repo,
+                base: mergeList[i + 1],
+                head: mergeList[i],
+                title: 'Cascading Auto-Merge: merge [' + mergeList[i] + '] into [' + mergeList[i + 1] + ']',
+                body: 'This PR was created automatically by the cascading downstream merge action.'
+              })
+            } catch (error) { // could not create the PR
+              console.error(error)
+
+              if (error.status === 422 && error.errors[0].message.startsWith('No commits between')) {
+                // create a comment in the HEAD Branch PR
+                await octokit.rest.issues.createComment({
+                  owner: repository.owner,
+                  repo: repository.repo,
+                  issue_number: pullNumber,
+                  body: 'I Tried to create a cascading PR but encountered an issue, [' + error.errors[0].message + '] but I am going to continue the cascading merge'
+                })
+                // goto the next PR iteration
+                continue
+              } else if (error.status === 422 && error.errors[0].message.startsWith('A pull request already exists')) {
+                // put a comment in the original PR, noting that the cascading failed
+                await octokit.rest.issues.createComment({
+                  owner: repository.owner,
+                  repo: repository.repo,
+                  issue_number: pullNumber,
+                  body: 'I Tried to create a cascading PR but encountered an issue, [' + error.errors[0].message + ']'
+                })
+                break
+              } else {
+                // put a comment in the original PR, noting that the cascading failed
+                await octokit.rest.issues.createComment({
+                  owner: repository.owner,
+                  repo: repository.repo,
+                  issue_number: pullNumber,
+                  body: 'Tried to create a cascading PR but encountered an issue [' + error.errors[0].message + ']'
+                })
+                // create an Issue in the Repo. that the cascading failed
+                await octokit.rest.issues.create({
+                  owner: repository.owner,
+                  repo: repository.repo,
+                  assignees: [actor],
+                  title: 'Problem with cascading Auto-Merge [ ' + error.errors[0].message + ']',
+                  body: 'Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** [' + error.errors[0].message + ' ]'
+                })
+                // stop the cascading auto-merge
+                break
+              }
+            }
+
+            // create a comment in the HEAD Branch PR
+            await octokit.rest.issues.createComment({
+              owner: repository.owner,
+              repo: repository.repo,
+              issue_number: pullNumber,
+              body: 'Created cascading Auto-Merge pull request #' + res.data.number
+            })
+
+            // -----------------------------------------------------------------------------------------------------------------
+            // MERGE the PR
+            // -----------------------------------------------------------------------------------------------------------------
+            try {
+              await mergeOctokit.rest.pulls.merge({
+                owner: repository.owner,
+                repo: repository.repo,
+                pull_number: res.data.number
+              })
+            } catch (error) {
+              console.error(error)
+
+              if (error.status === 405) {
+                // put a comment in the original PR, noting that the cascading failed
+                await octokit.rest.issues.createComment({
+                  owner: repository.owner,
+                  repo: repository.repo,
+                  issue_number: pullNumber,
+                  body: 'Could not auto merge PR #' + res.data.number + '. Possible merge conflict'
+                })
+                // create an Issue to notify Repo users
+                await octokit.rest.issues.create({
+                  owner: repository.owner,
+                  repo: repository.repo,
+                  assignees: [actor],
+                  title: 'Problem with cascading Auto-Merge [ mergable:' + error.mergable + ' ]',
+                  body: 'Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** - PR #' + res.data.number
+                })
+                // stop the cascading auto-merge
+                break
+              } else {
+                await octokit.rest.issues.create({
+                  owner: repository.owner,
+                  repo: repository.repo,
+                  assignees: [actor],
+                  title: 'Problem with cascading Auto-Merge [ ' + error.errors[0].message + ' ]',
+                  body: 'Issue with a PR created by cascading auto-merge, please try to resolve the Issue. **Cascading Auto-Merge has been stopped!**'
+                })
+                break
+              }
+            }
+          }
+        }
+
+        // ---------------------------------------------------------------------------
+        // Create the last commit, into a specified 'refBranch' (default), if provided
+        // ---------------------------------------------------------------------------
+        let ref
+        if (refBranch.length > 0) {
+          try {
+            ref = await octokit.rest.pulls.create({
+              owner: repository.owner,
+              repo: repository.repo,
+              base: refBranch,
+              head: headBranch,
+              title: 'Cascading Auto-Merge: merge [' + headBranch + '] into [' + refBranch + ']',
+              body: 'This PR was created automatically by the cascading downstream merge action.'
+            })
+
+            // create a comment in the HEAD Branch PR
+            await octokit.rest.issues.createComment({
+              owner: repository.owner,
+              repo: repository.repo,
+              issue_number: pullNumber,
+              body: 'Created cascading Auto-Merge FINAL pull request #' + ref.data.number
+            })
+
+            // MERGE the PR
+            await mergeOctokit.rest.pulls.merge({
+              owner: repository.owner,
+              repo: repository.repo,
+              pull_number: ref.data.number
+            })
+          } catch (error) { // could not create the PR
+            console.error(error)
+
+            if (error.status === 405) {
+              // put a comment in the original PR, noting that merging failed
+              await octokit.rest.issues.createComment({
+                owner: repository.owner,
+                repo: repository.repo,
+                issue_number: pullNumber,
+                body: 'Could not auto merge PR #' + ref.data.number + '. Possible merge conflict'
+              })
+              // create an Issue to notify Repo users
+              await octokit.rest.issues.create({
+                owner: repository.owner,
+                repo: repository.repo,
+                assignees: [actor],
+                title: 'Problem with cascading Auto-Merge [ mergable:' + error.mergable + ' ]',
+                body: 'Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** - PR #' + ref.data.number
+              })
+            } else {
+              // create a comment in the HEAD Branch PR
+              await octokit.rest.issues.createComment({
+                owner: repository.owner,
+                repo: repository.repo,
+                issue_number: pullNumber,
+                body: 'I Tried to create a cascading PR but encountered an issue, [' + error.errors[0].message + ']'
+              })
+            }
+          }
+        }
+      }
+
+      /**
+ * @function getRepoBranchMergeOrder
+ * @description
+ *  Filter repository branches based on a 'prefix/' and return an ordered list.
+ *  This function requires that the branches use semantic versioning
+ *  Example:
+ *    release/1.0.1-rc.1
+ *
+ * @param prefix
+ * @param headBranch
+ * @param branches
+ */
+      function getBranchMergeOrder (prefix, headBranch, branches) {
+        let branchList = []
+        // create a list from the 'branches' array, containing only branch names
+        branches.forEach(function (branch) {
+          branchList.push(branch.name)
+        })
+
+        // filter the branch names that start with the required prefix
+        branchList = branchList.filter(b => b.startsWith(prefix))
+
+        const len = branchList.length
+
+        console.log('getBranchMergeOrder - branchList: ', branchList)
+        // Bubble Sort - I know... but it's fine for our purpose
+        for (let j = 0; j < len - 1; j++) {
+          for (let i = 0; i < len - 1; i++) {
+            const res = isBiggerThan(semanticVersionToArray(branchList[i]), semanticVersionToArray(branchList[i + 1]))
+
+            if (res) {
+              swap(branchList, i, i + 1)
+            }
+          }
+        }
+
+        // return only the versions that are 'younger' than the PR version
+        while (branchList[0] !== headBranch) {
+          branchList.shift()
+        }
+
+        return branchList
+      }
+
+      /**
+ * @function swap
+ * @description Simple support utility for sorting arrays
+ *
+ * @param arr
+ * @param first_Index
+ * @param second_Index
+ */
+      function swap (arr, index1, index2) {
+        const temp = arr[index1]
+        arr[index1] = arr[index2]
+        arr[index2] = temp
+      }
+
+      /**
+ * @function isBiggerThan
+ * @description Compare the semantic versions v1 > v2 ?
+ *
+ * @param v1
+ * @param v2
+ */
+      function isBiggerThan (v1, v2) {
+        for (let i = 0; i < 5; i++) {
+          if (v1[i] === v2[i]) {
+            continue
+          } else if (v1[i] > v2[i]) {
+            return true
+          } else {
+            return false
+          }
+        }
+        return false
+      }
+
+      /**
+ * @function semanticVersionToArray
+ * @description Translate the 'string' type version to a normalized (5 digits) 'number' type array
+ *  Example
+ *     input: "release/1.1-rc.1"
+ *    output: [1,1,0,3,1]
+ *
+ * @param vStr
+ */
+      function semanticVersionToArray (vStr) {
+        // creating a 'lookup' table for the semantic versioning, to translate the 'release-name' to a number
+        const preRelease = new Map()
+        preRelease.set('alpha', 1)
+        preRelease.set('beta', 2)
+        preRelease.set('rc', 3)
+
+        const av = []
+        // 1.1.rc.1
+        // "release/1.1-rc.1"  -->  ['1','1-rc','1']
+        const avTemp = vStr.split('/')[1].split('.')
+
+        avTemp.forEach(function (v, index) {
+          // if version contains a 'pre-release' tag
+          if (v.includes('-')) {
+            const vTemp = v.split('-')
+            if (index === 1) {
+              // short version number - 1.1-rc
+              av.splice(index, 1, parseInt(vTemp[0], 10))
+              av.splice(index + 1, 1, 0)
+              av.splice(index + 2, 0, preRelease.get(vTemp[1]))
+            } else {
+              // full version number - 1.1.0-rc
+              av.splice(index, 1, parseInt(vTemp[0], 10))
+              av.splice(index + 1, 0, preRelease.get(vTemp[1]))
+            }
+          } else {
+            av.push(parseInt(v))
+          }
+        })
+
+        // make sure we get the standard length (5), fill with 0
+        if (av.length < 4) { av[3] = 0 }
+        if (av.length < 5) { av[4] = 0 }
+        // [1,1,0,3,1]
+        return av
+      }
+
+      module.exports = {
+        cascadingBranchMerge
+      }
+      /***/ },
+
+    /***/ 9590:
+    /***/ (module, __unused_webpack_exports, __nccwpck_require__) => {
+      'use strict'
+
+      const iconvLite = __nccwpck_require__(8635)
+
+      // Expose to the world
+      module.exports.O = convert
+
+      /**
+ * Convert encoding of an UTF-8 string or a buffer
+ *
+ * @param {String|Buffer} str String to be converted
+ * @param {String} to Encoding to be converted to
+ * @param {String} [from='UTF-8'] Encoding to be converted from
+ * @return {Buffer} Encoded string
+ */
+      function convert (str, to, from) {
+        from = checkEncoding(from || 'UTF-8')
+        to = checkEncoding(to || 'UTF-8')
+        str = str || ''
+
+        let result
+
+        if (from !== 'UTF-8' && typeof str === 'string') {
+          str = Buffer.from(str, 'binary')
+        }
+
+        if (from === to) {
+          if (typeof str === 'string') {
+            result = Buffer.from(str)
+          } else {
+            result = str
+          }
+        } else {
+          try {
+            result = convertIconvLite(str, to, from)
+          } catch (E) {
+            console.error(E)
+            result = str
+          }
+        }
+
+        if (typeof result === 'string') {
+          result = Buffer.from(result, 'utf-8')
+        }
+
+        return result
+      }
+
+      /**
+ * Convert encoding of astring with iconv-lite
+ *
+ * @param {String|Buffer} str String to be converted
+ * @param {String} to Encoding to be converted to
+ * @param {String} [from='UTF-8'] Encoding to be converted from
+ * @return {Buffer} Encoded string
+ */
+      function convertIconvLite (str, to, from) {
+        if (to === 'UTF-8') {
+          return iconvLite.decode(str, from)
+        } else if (from === 'UTF-8') {
+          return iconvLite.encode(str, to)
+        } else {
+          return iconvLite.encode(iconvLite.decode(str, from), to)
+        }
+      }
+
+      /**
+ * Converts charset name if needed
+ *
+ * @param {String} name Character set
+ * @return {String} Character set name
+ */
+      function checkEncoding (name) {
+        return (name || '')
+          .toString()
+          .trim()
+          .replace(/^latin[\-_]?(\d+)$/i, 'ISO-8859-$1')
+          .replace(/^win(?:dows)?[\-_]?(\d+)$/i, 'WINDOWS-$1')
+          .replace(/^utf[\-_]?(\d+)$/i, 'UTF-$1')
+          .replace(/^ks_c_5601\-1987$/i, 'CP949')
+          .replace(/^us[\-_]?ascii$/i, 'ASCII')
+          .toUpperCase()
+      }
+      /***/ },
+
+    /***/ 29:
+    /***/ (__unused_webpack_module, exports, __nccwpck_require__) => {
+      'use strict'
+
+      const Buffer = (__nccwpck_require__(8343).Buffer)
+
+      // Multibyte codec. In this scheme, a character is represented by 1 or more bytes.
+      // Our codec supports UTF-16 surrogates, extensions for GB18030 and unicode sequences.
+      // To save memory and loading time, we read table files only when requested.
+
+      exports._dbcs = DBCSCodec
+
+      const UNASSIGNED = -1
+      const GB18030_CODE = -2
+      const SEQ_START = -10
+      const NODE_START = -1000
+      const UNASSIGNED_NODE = new Array(0x100)
+      const DEF_CHAR = -1
+
+      for (let i = 0; i < 0x100; i++) { UNASSIGNED_NODE[i] = UNASSIGNED }
+
+      // Class DBCSCodec reads and initializes mapping tables.
+      function DBCSCodec (codecOptions, iconv) {
+        this.encodingName = codecOptions.encodingName
+        if (!codecOptions) { throw new Error('DBCS codec is called without the data.') }
+        if (!codecOptions.table) { throw new Error("Encoding '" + this.encodingName + "' has no data.") }
+
+        // Load tables.
+        const mappingTable = codecOptions.table()
+
+        // Decode tables: MBCS -> Unicode.
+
+        // decodeTables is a trie, encoded as an array of arrays of integers. Internal arrays are trie nodes and all have len = 256.
+        // Trie root is decodeTables[0].
+        // Values: >=  0 -> unicode character code. can be > 0xFFFF
+        //         == UNASSIGNED -> unknown/unassigned sequence.
+        //         == GB18030_CODE -> this is the end of a GB18030 4-byte sequence.
+        //         <= NODE_START -> index of the next node in our trie to process next byte.
+        //         <= SEQ_START  -> index of the start of a character code sequence, in decodeTableSeq.
+        this.decodeTables = []
+        this.decodeTables[0] = UNASSIGNED_NODE.slice(0) // Create root node.
+
+        // Sometimes a MBCS char corresponds to a sequence of unicode chars. We store them as arrays of integers here.
+        this.decodeTableSeq = []
+
+        // Actual mapping tables consist of chunks. Use them to fill up decode tables.
+        for (var i = 0; i < mappingTable.length; i++) { this._addDecodeChunk(mappingTable[i]) }
+
+        // Load & create GB18030 tables when needed.
+        if (typeof codecOptions.gb18030 === 'function') {
+          this.gb18030 = codecOptions.gb18030() // Load GB18030 ranges.
+
+          // Add GB18030 common decode nodes.
+          const commonThirdByteNodeIdx = this.decodeTables.length
+          this.decodeTables.push(UNASSIGNED_NODE.slice(0))
+
+          const commonFourthByteNodeIdx = this.decodeTables.length
+          this.decodeTables.push(UNASSIGNED_NODE.slice(0))
+
+          // Fill out the tree
+          const firstByteNode = this.decodeTables[0]
+          for (var i = 0x81; i <= 0xFE; i++) {
+            const secondByteNode = this.decodeTables[NODE_START - firstByteNode[i]]
+            for (var j = 0x30; j <= 0x39; j++) {
+              if (secondByteNode[j] === UNASSIGNED) {
+                secondByteNode[j] = NODE_START - commonThirdByteNodeIdx
+              } else if (secondByteNode[j] > NODE_START) {
+                throw new Error('gb18030 decode tables conflict at byte 2')
+              }
+
+              const thirdByteNode = this.decodeTables[NODE_START - secondByteNode[j]]
+              for (let k = 0x81; k <= 0xFE; k++) {
+                if (thirdByteNode[k] === UNASSIGNED) {
+                  thirdByteNode[k] = NODE_START - commonFourthByteNodeIdx
+                } else if (thirdByteNode[k] === NODE_START - commonFourthByteNodeIdx) {
+                  continue
+                } else if (thirdByteNode[k] > NODE_START) {
+                  throw new Error('gb18030 decode tables conflict at byte 3')
+                }
+
+                const fourthByteNode = this.decodeTables[NODE_START - thirdByteNode[k]]
+                for (let l = 0x30; l <= 0x39; l++) {
+                  if (fourthByteNode[l] === UNASSIGNED) { fourthByteNode[l] = GB18030_CODE }
+                }
+              }
+            }
+          }
+        }
+
+        this.defaultCharUnicode = iconv.defaultCharUnicode
+
+        // Encode tables: Unicode -> DBCS.
+
+        // `encodeTable` is array mapping from unicode char to encoded char. All its values are integers for performance.
+        // Because it can be sparse, it is represented as array of buckets by 256 chars each. Bucket can be null.
+        // Values: >=  0 -> it is a normal char. Write the value (if <=256 then 1 byte, if <=65536 then 2 bytes, etc.).
+        //         == UNASSIGNED -> no conversion found. Output a default char.
+        //         <= SEQ_START  -> it's an index in encodeTableSeq, see below. The character starts a sequence.
+        this.encodeTable = []
+
+        // `encodeTableSeq` is used when a sequence of unicode characters is encoded as a single code. We use a tree of
+        // objects where keys correspond to characters in sequence and leafs are the encoded dbcs values. A special DEF_CHAR key
+        // means end of sequence (needed when one sequence is a strict subsequence of another).
+        // Objects are kept separately from encodeTable to increase performance.
+        this.encodeTableSeq = []
+
+        // Some chars can be decoded, but need not be encoded.
+        const skipEncodeChars = {}
+        if (codecOptions.encodeSkipVals) {
+          for (var i = 0; i < codecOptions.encodeSkipVals.length; i++) {
+            const val = codecOptions.encodeSkipVals[i]
+            if (typeof val === 'number') { skipEncodeChars[val] = true } else {
+              for (var j = val.from; j <= val.to; j++) { skipEncodeChars[j] = true }
+            }
+          }
+        }
+
+        // Use decode trie to recursively fill out encode tables.
+        this._fillEncodeTable(0, 0, skipEncodeChars)
+
+        // Add more encoding pairs when needed.
+        if (codecOptions.encodeAdd) {
+          for (const uChar in codecOptions.encodeAdd) {
+            if (Object.prototype.hasOwnProperty.call(codecOptions.encodeAdd, uChar)) { this._setEncodeChar(uChar.charCodeAt(0), codecOptions.encodeAdd[uChar]) }
+          }
+        }
+
+        this.defCharSB = this.encodeTable[0][iconv.defaultCharSingleByte.charCodeAt(0)]
+        if (this.defCharSB === UNASSIGNED) this.defCharSB = this.encodeTable[0]['?']
+        if (this.defCharSB === UNASSIGNED) this.defCharSB = '?'.charCodeAt(0)
+      }
+
+      DBCSCodec.prototype.encoder = DBCSEncoder
+      DBCSCodec.prototype.decoder = DBCSDecoder
+
+      // Decoder helpers
+      DBCSCodec.prototype._getDecodeTrieNode = function (addr) {
+        const bytes = []
+        for (; addr > 0; addr >>>= 8) { bytes.push(addr & 0xFF) }
+        if (bytes.length == 0) { bytes.push(0) }
+
+        let node = this.decodeTables[0]
+        for (let i = bytes.length - 1; i > 0; i--) { // Traverse nodes deeper into the trie.
+          const val = node[bytes[i]]
+
+          if (val == UNASSIGNED) { // Create new node.
+            node[bytes[i]] = NODE_START - this.decodeTables.length
+            this.decodeTables.push(node = UNASSIGNED_NODE.slice(0))
+          } else if (val <= NODE_START) { // Existing node.
+            node = this.decodeTables[NODE_START - val]
+          } else { throw new Error('Overwrite byte in ' + this.encodingName + ', addr: ' + addr.toString(16)) }
+        }
+        return node
+      }
+
+      DBCSCodec.prototype._addDecodeChunk = function (chunk) {
+        // First element of chunk is the hex mbcs code where we start.
+        let curAddr = parseInt(chunk[0], 16)
+
+        // Choose the decoding node where we'll write our chars.
+        const writeTable = this._getDecodeTrieNode(curAddr)
+        curAddr = curAddr & 0xFF
+
+        // Write all other elements of the chunk to the table.
+        for (let k = 1; k < chunk.length; k++) {
+          const part = chunk[k]
+          if (typeof part === 'string') { // String, write as-is.
+            for (var l = 0; l < part.length;) {
+              const code = part.charCodeAt(l++)
+              if (code >= 0xD800 && code < 0xDC00) { // Decode surrogate
+                const codeTrail = part.charCodeAt(l++)
+                if (codeTrail >= 0xDC00 && codeTrail < 0xE000) { writeTable[curAddr++] = 0x10000 + (code - 0xD800) * 0x400 + (codeTrail - 0xDC00) } else { throw new Error('Incorrect surrogate pair in ' + this.encodingName + ' at chunk ' + chunk[0]) }
+              } else if (code > 0x0FF0 && code <= 0x0FFF) { // Character sequence (our own encoding used)
+                const len = 0xFFF - code + 2
+                const seq = []
+                for (let m = 0; m < len; m++) { seq.push(part.charCodeAt(l++)) } // Simple variation: don't support surrogates or subsequences in seq.
+
+                writeTable[curAddr++] = SEQ_START - this.decodeTableSeq.length
+                this.decodeTableSeq.push(seq)
+              } else { writeTable[curAddr++] = code } // Basic char
+            }
+          } else if (typeof part === 'number') { // Integer, meaning increasing sequence starting with prev character.
+            let charCode = writeTable[curAddr - 1] + 1
+            for (var l = 0; l < part; l++) { writeTable[curAddr++] = charCode++ }
+          } else { throw new Error("Incorrect type '" + typeof part + "' given in " + this.encodingName + ' at chunk ' + chunk[0]) }
+        }
+        if (curAddr > 0xFF) { throw new Error('Incorrect chunk in ' + this.encodingName + ' at addr ' + chunk[0] + ': too long' + curAddr) }
+      }
+
+      // Encoder helpers
+      DBCSCodec.prototype._getEncodeBucket = function (uCode) {
+        const high = uCode >> 8 // This could be > 0xFF because of astral characters.
+        if (this.encodeTable[high] === undefined) { this.encodeTable[high] = UNASSIGNED_NODE.slice(0) } // Create bucket on demand.
+        return this.encodeTable[high]
+      }
+
+      DBCSCodec.prototype._setEncodeChar = function (uCode, dbcsCode) {
+        const bucket = this._getEncodeBucket(uCode)
+        const low = uCode & 0xFF
+        if (bucket[low] <= SEQ_START) { this.encodeTableSeq[SEQ_START - bucket[low]][DEF_CHAR] = dbcsCode } // There's already a sequence, set a single-char subsequence of it.
+        else if (bucket[low] == UNASSIGNED) { bucket[low] = dbcsCode }
+      }
+
+      DBCSCodec.prototype._setEncodeSequence = function (seq, dbcsCode) {
+        // Get the root of character tree according to first character of the sequence.
+        let uCode = seq[0]
+        const bucket = this._getEncodeBucket(uCode)
+        const low = uCode & 0xFF
+
+        let node
+        if (bucket[low] <= SEQ_START) {
+        // There's already a sequence with  - use it.
+          node = this.encodeTableSeq[SEQ_START - bucket[low]]
+        } else {
+        // There was no sequence object - allocate a new one.
+          node = {}
+          if (bucket[low] !== UNASSIGNED) node[DEF_CHAR] = bucket[low] // If a char was set before - make it a single-char subsequence.
+          bucket[low] = SEQ_START - this.encodeTableSeq.length
+          this.encodeTableSeq.push(node)
+        }
+
+        // Traverse the character tree, allocating new nodes as needed.
+        for (let j = 1; j < seq.length - 1; j++) {
+          const oldVal = node[uCode]
+          if (typeof oldVal === 'object') { node = oldVal } else {
+            node = node[uCode] = {}
+            if (oldVal !== undefined) { node[DEF_CHAR] = oldVal }
+          }
+        }
+
+        // Set the leaf to given dbcsCode.
+        uCode = seq[seq.length - 1]
+        node[uCode] = dbcsCode
+      }
+
+      DBCSCodec.prototype._fillEncodeTable = function (nodeIdx, prefix, skipEncodeChars) {
+        const node = this.decodeTables[nodeIdx]
+        let hasValues = false
+        const subNodeEmpty = {}
+        for (let i = 0; i < 0x100; i++) {
+          const uCode = node[i]
+          const mbCode = prefix + i
+          if (skipEncodeChars[mbCode]) { continue }
+
+          if (uCode >= 0) {
+            this._setEncodeChar(uCode, mbCode)
+            hasValues = true
+          } else if (uCode <= NODE_START) {
+            const subNodeIdx = NODE_START - uCode
+            if (!subNodeEmpty[subNodeIdx]) { // Skip empty subtrees (they are too large in gb18030).
+              const newPrefix = (mbCode << 8) >>> 0 // NOTE: '>>> 0' keeps 32-bit num positive.
+              if (this._fillEncodeTable(subNodeIdx, newPrefix, skipEncodeChars)) { hasValues = true } else { subNodeEmpty[subNodeIdx] = true }
+            }
+          } else if (uCode <= SEQ_START) {
+            this._setEncodeSequence(this.decodeTableSeq[SEQ_START - uCode], mbCode)
+            hasValues = true
+          }
+        }
+        return hasValues
+      }
+
+      // == Encoder ==================================================================
+
+      function DBCSEncoder (options, codec) {
+        // Encoder state
+        this.leadSurrogate = -1
+        this.seqObj = undefined
+
+        // Static data
+        this.encodeTable = codec.encodeTable
+        this.encodeTableSeq = codec.encodeTableSeq
+        this.defaultCharSingleByte = codec.defCharSB
+        this.gb18030 = codec.gb18030
+      }
+
+      DBCSEncoder.prototype.write = function (str) {
+        const newBuf = Buffer.alloc(str.length * (this.gb18030 ? 4 : 3))
+        let leadSurrogate = this.leadSurrogate
+        let seqObj = this.seqObj; let nextChar = -1
+        let i = 0; let j = 0
+
+        while (true) {
+        // 0. Get next character.
+          if (nextChar === -1) {
+            if (i == str.length) break
+            var uCode = str.charCodeAt(i++)
+          } else {
+            var uCode = nextChar
+            nextChar = -1
+          }
+
+          // 1. Handle surrogates.
+          if (uCode >= 0xD800 && uCode < 0xE000) { // Char is one of surrogates.
+            if (uCode < 0xDC00) { // We've got lead surrogate.
+              if (leadSurrogate === -1) {
+                leadSurrogate = uCode
+                continue
+              } else {
+                leadSurrogate = uCode
+                // Double lead surrogate found.
+                uCode = UNASSIGNED
+              }
+            } else { // We've got trail surrogate.
+              if (leadSurrogate !== -1) {
+                uCode = 0x10000 + (leadSurrogate - 0xD800) * 0x400 + (uCode - 0xDC00)
+                leadSurrogate = -1
+              } else {
+                // Incomplete surrogate pair - only trail surrogate found.
+                uCode = UNASSIGNED
+              }
+            }
+          } else if (leadSurrogate !== -1) {
+            // Incomplete surrogate pair - only lead surrogate found.
+            nextChar = uCode; uCode = UNASSIGNED // Write an error, then current char.
+            leadSurrogate = -1
+          }
+
+          // 2. Convert uCode character.
+          var dbcsCode = UNASSIGNED
+          if (seqObj !== undefined && uCode != UNASSIGNED) { // We are in the middle of the sequence
+            let resCode = seqObj[uCode]
+            if (typeof resCode === 'object') { // Sequence continues.
+              seqObj = resCode
+              continue
+            } else if (typeof resCode === 'number') { // Sequence finished. Write it.
+              dbcsCode = resCode
+            } else if (resCode == undefined) { // Current character is not part of the sequence.
+              // Try default character for this sequence
+              resCode = seqObj[DEF_CHAR]
+              if (resCode !== undefined) {
+                dbcsCode = resCode // Found. Write it.
+                nextChar = uCode // Current character will be written too in the next iteration.
+              } else {
+                // TODO: What if we have no default? (resCode == undefined)
+                // Then, we should write first char of the sequence as-is and try the rest recursively.
+                // Didn't do it for now because no encoding has this situation yet.
+                // Currently, just skip the sequence and write current char.
+              }
+            }
+            seqObj = undefined
+          } else if (uCode >= 0) { // Regular character
+            const subtable = this.encodeTable[uCode >> 8]
+            if (subtable !== undefined) { dbcsCode = subtable[uCode & 0xFF] }
+
+            if (dbcsCode <= SEQ_START) { // Sequence start
+              seqObj = this.encodeTableSeq[SEQ_START - dbcsCode]
+              continue
+            }
+
+            if (dbcsCode == UNASSIGNED && this.gb18030) {
+              // Use GB18030 algorithm to find character(s) to write.
+              const idx = findIdx(this.gb18030.uChars, uCode)
+              if (idx != -1) {
+                var dbcsCode = this.gb18030.gbChars[idx] + (uCode - this.gb18030.uChars[idx])
+                newBuf[j++] = 0x81 + Math.floor(dbcsCode / 12600); dbcsCode = dbcsCode % 12600
+                newBuf[j++] = 0x30 + Math.floor(dbcsCode / 1260); dbcsCode = dbcsCode % 1260
+                newBuf[j++] = 0x81 + Math.floor(dbcsCode / 10); dbcsCode = dbcsCode % 10
+                newBuf[j++] = 0x30 + dbcsCode
+                continue
+              }
+            }
+          }
+
+          // 3. Write dbcsCode character.
+          if (dbcsCode === UNASSIGNED) { dbcsCode = this.defaultCharSingleByte }
+
+          if (dbcsCode < 0x100) {
+            newBuf[j++] = dbcsCode
+          } else if (dbcsCode < 0x10000) {
+            newBuf[j++] = dbcsCode >> 8 // high byte
+            newBuf[j++] = dbcsCode & 0xFF // low byte
+          } else if (dbcsCode < 0x1000000) {
+            newBuf[j++] = dbcsCode >> 16
+            newBuf[j++] = (dbcsCode >> 8) & 0xFF
+            newBuf[j++] = dbcsCode & 0xFF
+          } else {
+            newBuf[j++] = dbcsCode >>> 24
+            newBuf[j++] = (dbcsCode >>> 16) & 0xFF
+            newBuf[j++] = (dbcsCode >>> 8) & 0xFF
+            newBuf[j++] = dbcsCode & 0xFF
+          }
+        }
+
+        this.seqObj = seqObj
+        this.leadSurrogate = leadSurrogate
+        return newBuf.slice(0, j)
+      }
+
+      DBCSEncoder.prototype.end = function () {
+        if (this.leadSurrogate === -1 && this.seqObj === undefined) { return } // All clean. Most often case.
+
+        const newBuf = Buffer.alloc(10); let j = 0
+
+        if (this.seqObj) { // We're in the sequence.
+          const dbcsCode = this.seqObj[DEF_CHAR]
+          if (dbcsCode !== undefined) { // Write beginning of the sequence.
+            if (dbcsCode < 0x100) {
+              newBuf[j++] = dbcsCode
+            } else {
+              newBuf[j++] = dbcsCode >> 8 // high byte
+              newBuf[j++] = dbcsCode & 0xFF // low byte
+            }
+          } else {
+            // See todo above.
+          }
+          this.seqObj = undefined
+        }
+
+        if (this.leadSurrogate !== -1) {
+        // Incomplete surrogate pair - only lead surrogate found.
+          newBuf[j++] = this.defaultCharSingleByte
+          this.leadSurrogate = -1
+        }
+
+        return newBuf.slice(0, j)
+      }
+
+      // Export for testing
+      DBCSEncoder.prototype.findIdx = findIdx
+
+      // == Decoder ==================================================================
+
+      function DBCSDecoder (options, codec) {
+        // Decoder state
+        this.nodeIdx = 0
+        this.prevBytes = []
+
+        // Static data
+        this.decodeTables = codec.decodeTables
+        this.decodeTableSeq = codec.decodeTableSeq
+        this.defaultCharUnicode = codec.defaultCharUnicode
+        this.gb18030 = codec.gb18030
+      }
+
+      DBCSDecoder.prototype.write = function (buf) {
+        const newBuf = Buffer.alloc(buf.length * 2)
+        let nodeIdx = this.nodeIdx
+        const prevBytes = this.prevBytes; const prevOffset = this.prevBytes.length
+        let seqStart = -this.prevBytes.length // idx of the start of current parsed sequence.
+        var uCode
+
+        for (var i = 0, j = 0; i < buf.length; i++) {
+          const curByte = (i >= 0) ? buf[i] : prevBytes[i + prevOffset]
+
+          // Lookup in current trie node.
+          var uCode = this.decodeTables[nodeIdx][curByte]
+
+          if (uCode >= 0) {
+            // Normal character, just use it.
+          } else if (uCode === UNASSIGNED) { // Unknown char.
+            // TODO: Callback with seq.
+            uCode = this.defaultCharUnicode.charCodeAt(0)
+            i = seqStart // Skip one byte ('i' will be incremented by the for loop) and try to parse again.
+          } else if (uCode === GB18030_CODE) {
+            if (i >= 3) {
+              var ptr = (buf[i - 3] - 0x81) * 12600 + (buf[i - 2] - 0x30) * 1260 + (buf[i - 1] - 0x81) * 10 + (curByte - 0x30)
+            } else {
+              var ptr = (prevBytes[i - 3 + prevOffset] - 0x81) * 12600 +
+                          (((i - 2 >= 0) ? buf[i - 2] : prevBytes[i - 2 + prevOffset]) - 0x30) * 1260 +
+                          (((i - 1 >= 0) ? buf[i - 1] : prevBytes[i - 1 + prevOffset]) - 0x81) * 10 +
+                          (curByte - 0x30)
+            }
+            const idx = findIdx(this.gb18030.gbChars, ptr)
+            uCode = this.gb18030.uChars[idx] + ptr - this.gb18030.gbChars[idx]
+          } else if (uCode <= NODE_START) { // Go to next trie node.
+            nodeIdx = NODE_START - uCode
+            continue
+          } else if (uCode <= SEQ_START) { // Output a sequence of chars.
+            const seq = this.decodeTableSeq[SEQ_START - uCode]
+            for (let k = 0; k < seq.length - 1; k++) {
+              uCode = seq[k]
+              newBuf[j++] = uCode & 0xFF
+              newBuf[j++] = uCode >> 8
+            }
+            uCode = seq[seq.length - 1]
+          } else { throw new Error('iconv-lite internal error: invalid decoding table value ' + uCode + ' at ' + nodeIdx + '/' + curByte) }
+
+          // Write the character to buffer, handling higher planes using surrogate pair.
+          if (uCode >= 0x10000) {
+            uCode -= 0x10000
+            const uCodeLead = 0xD800 | (uCode >> 10)
+            newBuf[j++] = uCodeLead & 0xFF
+            newBuf[j++] = uCodeLead >> 8
+
+            uCode = 0xDC00 | (uCode & 0x3FF)
+          }
+          newBuf[j++] = uCode & 0xFF
+          newBuf[j++] = uCode >> 8
+
+          // Reset trie node.
+          nodeIdx = 0; seqStart = i + 1
+        }
+
+        this.nodeIdx = nodeIdx
+        this.prevBytes = (seqStart >= 0)
+          ? Array.prototype.slice.call(buf, seqStart)
+          : prevBytes.slice(seqStart + prevOffset).concat(Array.prototype.slice.call(buf))
+
+        return newBuf.slice(0, j).toString('ucs2')
+      }
+
+      DBCSDecoder.prototype.end = function () {
+        let ret = ''
+
+        // Try to parse all remaining chars.
+        while (this.prevBytes.length > 0) {
+        // Skip 1 character in the buffer.
+          ret += this.defaultCharUnicode
+          const bytesArr = this.prevBytes.slice(1)
+
+          // Parse remaining as usual.
+          this.prevBytes = []
+          this.nodeIdx = 0
+          if (bytesArr.length > 0) { ret += this.write(bytesArr) }
+        }
+
+        this.prevBytes = []
+        this.nodeIdx = 0
+        return ret
+      }
+
+      // Binary search for GB18030. Returns largest i such that table[i] <= val.
+      function findIdx (table, val) {
+        if (table[0] > val) { return -1 }
+
+        let l = 0; let r = table.length
+        while (l < r - 1) { // always table[l] <= val < table[r]
+          const mid = l + ((r - l + 1) >> 1)
+          if (table[mid] <= val) { l = mid } else { r = mid }
+        }
+        return l
+      }
+      /***/ },
+
+    /***/ 7399:
+    /***/ (module, __unused_webpack_exports, __nccwpck_require__) => {
+      'use strict'
+
+      // Description of supported double byte encodings and aliases.
+      // Tables are not require()-d until they are needed to speed up library load.
+      // require()-s are direct to support Browserify.
+
+      module.exports = {
+
+        // == Japanese/ShiftJIS ====================================================
+        // All japanese encodings are based on JIS X set of standards:
+        // JIS X 0201 - Single-byte encoding of ASCII + ¥ + Kana chars at 0xA1-0xDF.
+        // JIS X 0208 - Main set of 6879 characters, placed in 94x94 plane, to be encoded by 2 bytes.
+        //              Has several variations in 1978, 1983, 1990 and 1997.
+        // JIS X 0212 - Supplementary plane of 6067 chars in 94x94 plane. 1990. Effectively dead.
+        // JIS X 0213 - Extension and modern replacement of 0208 and 0212. Total chars: 11233.
+        //              2 planes, first is superset of 0208, second - revised 0212.
+        //              Introduced in 2000, revised 2004. Some characters are in Unicode Plane 2 (0x2xxxx)
+
+        // Byte encodings are:
+        //  * Shift_JIS: Compatible with 0201, uses not defined chars in top half as lead bytes for double-byte
+        //               encoding of 0208. Lead byte ranges: 0x81-0x9F, 0xE0-0xEF; Trail byte ranges: 0x40-0x7E, 0x80-0x9E, 0x9F-0xFC.
+        //               Windows CP932 is a superset of Shift_JIS. Some companies added more chars, notably KDDI.
+        //  * EUC-JP:    Up to 3 bytes per character. Used mostly on *nixes.
+        //               0x00-0x7F       - lower part of 0201
+        //               0x8E, 0xA1-0xDF - upper part of 0201
+        //               (0xA1-0xFE)x2   - 0208 plane (94x94).
+        //               0x8F, (0xA1-0xFE)x2 - 0212 plane (94x94).
+        //  * JIS X 208: 7-bit, direct encoding of 0208. Byte ranges: 0x21-0x7E (94 values). Uncommon.
+        //               Used as-is in ISO2022 family.
+        //  * ISO2022-JP: Stateful encoding, with escape sequences to switch between ASCII,
+        //                0201-1976 Roman, 0208-1978, 0208-1983.
+        //  * ISO2022-JP-1: Adds esc seq for 0212-1990.
+        //  * ISO2022-JP-2: Adds esc seq for GB2313-1980, KSX1001-1992, ISO8859-1, ISO8859-7.
+        //  * ISO2022-JP-3: Adds esc seq for 0201-1976 Kana set, 0213-2000 Planes 1, 2.
+        //  * ISO2022-JP-2004: Adds 0213-2004 Plane 1.
+        //
+        // After JIS X 0213 appeared, Shift_JIS-2004, EUC-JISX0213 and ISO2022-JP-2004 followed, with just changing the planes.
+        //
+        // Overall, it seems that it's a mess :( http://www8.plala.or.jp/tkubota1/unicode-symbols-map2.html
+
+        shiftjis: {
+          type: '_dbcs',
+          table: function () { return __nccwpck_require__(1537) },
+          encodeAdd: { '\u00a5': 0x5C, '\u203E': 0x7E },
+          encodeSkipVals: [{ from: 0xED40, to: 0xF940 }]
+        },
+        csshiftjis: 'shiftjis',
+        mskanji: 'shiftjis',
+        sjis: 'shiftjis',
+        windows31j: 'shiftjis',
+        ms31j: 'shiftjis',
+        xsjis: 'shiftjis',
+        windows932: 'shiftjis',
+        ms932: 'shiftjis',
+        932: 'shiftjis',
+        cp932: 'shiftjis',
+
+        eucjp: {
+          type: '_dbcs',
+          table: function () { return __nccwpck_require__(8601) },
+          encodeAdd: { '\u00a5': 0x5C, '\u203E': 0x7E }
+        },
+
+        // TODO: KDDI extension to Shift_JIS
+        // TODO: IBM CCSID 942 = CP932, but F0-F9 custom chars and other char changes.
+        // TODO: IBM CCSID 943 = Shift_JIS = CP932 with original Shift_JIS lower 128 chars.
+
+        // == Chinese/GBK ==========================================================
+        // http://en.wikipedia.org/wiki/GBK
+        // We mostly implement W3C recommendation: https://www.w3.org/TR/encoding/#gbk-encoder
+
+        // Oldest GB2312 (1981, ~7600 chars) is a subset of CP936
+        gb2312: 'cp936',
+        gb231280: 'cp936',
+        gb23121980: 'cp936',
+        csgb2312: 'cp936',
+        csiso58gb231280: 'cp936',
+        euccn: 'cp936',
+
+        // Microsoft's CP936 is a subset and approximation of GBK.
+        windows936: 'cp936',
+        ms936: 'cp936',
+        936: 'cp936',
+        cp936: {
+          type: '_dbcs',
+          table: function () { return __nccwpck_require__(2029) }
+        },
+
+        // GBK (~22000 chars) is an extension of CP936 that added user-mapped chars and some other.
+        gbk: {
+          type: '_dbcs',
+          table: function () { return (__nccwpck_require__(2029).concat)(__nccwpck_require__(9349)) }
+        },
+        xgbk: 'gbk',
+        isoir58: 'gbk',
+
+        // GB18030 is an algorithmic extension of GBK.
+        // Main source: https://www.w3.org/TR/encoding/#gbk-encoder
+        // http://icu-project.org/docs/papers/gb18030.html
+        // http://source.icu-project.org/repos/icu/data/trunk/charset/data/xml/gb-18030-2000.xml
+        // http://www.khngai.com/chinese/charmap/tblgbk.php?page=0
+        gb18030: {
+          type: '_dbcs',
+          table: function () { return (__nccwpck_require__(2029).concat)(__nccwpck_require__(9349)) },
+          gb18030: function () { return __nccwpck_require__(4705) },
+          encodeSkipVals: [0x80],
+          encodeAdd: { '€': 0xA2E3 }
+        },
+
+        chinese: 'gb18030',
+
+        // == Korean ===============================================================
+        // EUC-KR, KS_C_5601 and KS X 1001 are exactly the same.
+        windows949: 'cp949',
+        ms949: 'cp949',
+        949: 'cp949',
+        cp949: {
+          type: '_dbcs',
+          table: function () { return __nccwpck_require__(920) }
+        },
+
+        cseuckr: 'cp949',
+        csksc56011987: 'cp949',
+        euckr: 'cp949',
+        isoir149: 'cp949',
+        korean: 'cp949',
+        ksc56011987: 'cp949',
+        ksc56011989: 'cp949',
+        ksc5601: 'cp949',
+
+        // == Big5/Taiwan/Hong Kong ================================================
+        // There are lots of tables for Big5 and cp950. Please see the following links for history:
+        // http://moztw.org/docs/big5/  http://www.haible.de/bruno/charsets/conversion-tables/Big5.html
+        // Variations, in roughly number of defined chars:
+        //  * Windows CP 950: Microsoft variant of Big5. Canonical: http://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP950.TXT
+        //  * Windows CP 951: Microsoft variant of Big5-HKSCS-2001. Seems to be never public. http://me.abelcheung.org/articles/research/what-is-cp951/
+        //  * Big5-2003 (Taiwan standard) almost superset of cp950.
+        //  * Unicode-at-on (UAO) / Mozilla 1.8. Falling out of use on the Web. Not supported by other browsers.
+        //  * Big5-HKSCS (-2001, -2004, -2008). Hong Kong standard.
+        //    many unicode code points moved from PUA to Supplementary plane (U+2XXXX) over the years.
+        //    Plus, it has 4 combining sequences.
+        //    Seems that Mozilla refused to support it for 10 yrs. https://bugzilla.mozilla.org/show_bug.cgi?id=162431 https://bugzilla.mozilla.org/show_bug.cgi?id=310299
+        //    because big5-hkscs is the only encoding to include astral characters in non-algorithmic way.
+        //    Implementations are not consistent within browsers; sometimes labeled as just big5.
+        //    MS Internet Explorer switches from big5 to big5-hkscs when a patch applied.
+        //    Great discussion & recap of what's going on https://bugzilla.mozilla.org/show_bug.cgi?id=912470#c31
+        //    In the encoder, it might make sense to support encoding old PUA mappings to Big5 bytes seq-s.
+        //    Official spec: http://www.ogcio.gov.hk/en/business/tech_promotion/ccli/terms/doc/2003cmp_2008.txt
+        //                   http://www.ogcio.gov.hk/tc/business/tech_promotion/ccli/terms/doc/hkscs-2008-big5-iso.txt
+        //
+        // Current understanding of how to deal with Big5(-HKSCS) is in the Encoding Standard, http://encoding.spec.whatwg.org/#big5-encoder
+        // Unicode mapping (http://www.unicode.org/Public/MAPPINGS/OBSOLETE/EASTASIA/OTHER/BIG5.TXT) is said to be wrong.
+
+        windows950: 'cp950',
+        ms950: 'cp950',
+        950: 'cp950',
+        cp950: {
+          type: '_dbcs',
+          table: function () { return __nccwpck_require__(1154) }
+        },
+
+        // Big5 has many variations and is an extension of cp950. We use Encoding Standard's as a consensus.
+        big5: 'big5hkscs',
+        big5hkscs: {
+          type: '_dbcs',
+          table: function () { return (__nccwpck_require__(1154).concat)(__nccwpck_require__(3870)) },
+          encodeSkipVals: [
+            // Although Encoding Standard says we should avoid encoding to HKSCS area (See Step 1 of
+            // https://encoding.spec.whatwg.org/#index-big5-pointer), we still do it to increase compatibility with ICU.
+            // But if a single unicode point can be encoded both as HKSCS and regular Big5, we prefer the latter.
+            0x8e69, 0x8e6f, 0x8e7e, 0x8eab, 0x8eb4, 0x8ecd, 0x8ed0, 0x8f57, 0x8f69, 0x8f6e, 0x8fcb, 0x8ffe,
+            0x906d, 0x907a, 0x90c4, 0x90dc, 0x90f1, 0x91bf, 0x92af, 0x92b0, 0x92b1, 0x92b2, 0x92d1, 0x9447, 0x94ca,
+            0x95d9, 0x96fc, 0x9975, 0x9b76, 0x9b78, 0x9b7b, 0x9bc6, 0x9bde, 0x9bec, 0x9bf6, 0x9c42, 0x9c53, 0x9c62,
+            0x9c68, 0x9c6b, 0x9c77, 0x9cbc, 0x9cbd, 0x9cd0, 0x9d57, 0x9d5a, 0x9dc4, 0x9def, 0x9dfb, 0x9ea9, 0x9eef,
+            0x9efd, 0x9f60, 0x9fcb, 0xa077, 0xa0dc, 0xa0df, 0x8fcc, 0x92c8, 0x9644, 0x96ed,
+
+            // Step 2 of https://encoding.spec.whatwg.org/#index-big5-pointer: Use last pointer for U+2550, U+255E, U+2561, U+256A, U+5341, or U+5345
+            0xa2a4, 0xa2a5, 0xa2a7, 0xa2a6, 0xa2cc, 0xa2ce
+          ]
+        },
+
+        cnbig5: 'big5hkscs',
+        csbig5: 'big5hkscs',
+        xxbig5: 'big5hkscs'
+      }
+      /***/ },
+
+    /***/ 4789:
+    /***/ (__unused_webpack_module, exports, __nccwpck_require__) => {
+      'use strict'
+
+      // Update this array if you add/rename/remove files in this directory.
+      // We support Browserify by skipping automatic module discovery and requiring modules directly.
+      const modules = [
+        __nccwpck_require__(6770),
+        __nccwpck_require__(6541),
+        __nccwpck_require__(3950),
+        __nccwpck_require__(1635),
+        __nccwpck_require__(6459),
+        __nccwpck_require__(2147),
+        __nccwpck_require__(3472),
+        __nccwpck_require__(29),
+        __nccwpck_require__(7399)
+      ]
+
+      // Put all encoding/alias/codec definitions to single object and export it.
+      for (let i = 0; i < modules.length; i++) {
+        const module = modules[i]
+        for (const enc in module) { if (Object.prototype.hasOwnProperty.call(module, enc)) { exports[enc] = module[enc] } }
+      }
+      /***/ },
+
+    /***/ 6770:
+    /***/ (module, __unused_webpack_exports, __nccwpck_require__) => {
+      'use strict'
+
+      const Buffer = (__nccwpck_require__(8343).Buffer)
+
+      // Export Node.js internal encodings.
+
+      module.exports = {
+        // Encodings
+        utf8: { type: '_internal', bomAware: true },
+        cesu8: { type: '_internal', bomAware: true },
+        unicode11utf8: 'utf8',
+
+        ucs2: { type: '_internal', bomAware: true },
+        utf16le: 'ucs2',
+
+        binary: { type: '_internal' },
+        base64: { type: '_internal' },
+        hex: { type: '_internal' },
+
+        // Codec.
+        _internal: InternalCodec
+      }
+
+      // ------------------------------------------------------------------------------
+
+      function InternalCodec (codecOptions, iconv) {
+        this.enc = codecOptions.encodingName
+        this.bomAware = codecOptions.bomAware
+
+        if (this.enc === 'base64') { this.encoder = InternalEncoderBase64 } else if (this.enc === 'cesu8') {
+          this.enc = 'utf8' // Use utf8 for decoding.
+          this.encoder = InternalEncoderCesu8
+
+          // Add decoder for versions of Node not supporting CESU-8
+          if (Buffer.from('eda0bdedb2a9', 'hex').toString() !== '💩') {
+            this.decoder = InternalDecoderCesu8
+            this.defaultCharUnicode = iconv.defaultCharUnicode
+          }
+        }
+      }
+
+      InternalCodec.prototype.encoder = InternalEncoder
+      InternalCodec.prototype.decoder = InternalDecoder
+
+      // ------------------------------------------------------------------------------
+
+      // We use node.js internal decoder. Its signature is the same as ours.
+      const StringDecoder = (__nccwpck_require__(1576).StringDecoder)
+
+      if (!StringDecoder.prototype.end) // Node v0.8 doesn't have this method.
+      { StringDecoder.prototype.end = function () {} }
+
+      function InternalDecoder (options, codec) {
+        this.decoder = new StringDecoder(codec.enc)
+      }
+
+      InternalDecoder.prototype.write = function (buf) {
+        if (!Buffer.isBuffer(buf)) {
+          buf = Buffer.from(buf)
+        }
+
+        return this.decoder.write(buf)
+      }
+
+      InternalDecoder.prototype.end = function () {
+        return this.decoder.end()
+      }
+
+      // ------------------------------------------------------------------------------
+      // Encoder is mostly trivial
+
+      function InternalEncoder (options, codec) {
+        this.enc = codec.enc
+      }
+
+      InternalEncoder.prototype.write = function (str) {
+        return Buffer.from(str, this.enc)
+      }
+
+      InternalEncoder.prototype.end = function () {
+      }
+
+      // ------------------------------------------------------------------------------
+      // Except base64 encoder, which must keep its state.
+
+      function InternalEncoderBase64 (options, codec) {
+        this.prevStr = ''
+      }
+
+      InternalEncoderBase64.prototype.write = function (str) {
+        str = this.prevStr + str
+        const completeQuads = str.length - (str.length % 4)
+        this.prevStr = str.slice(completeQuads)
+        str = str.slice(0, completeQuads)
+
+        return Buffer.from(str, 'base64')
+      }
+
+      InternalEncoderBase64.prototype.end = function () {
+        return Buffer.from(this.prevStr, 'base64')
+      }
+
+      // ------------------------------------------------------------------------------
+      // CESU-8 encoder is also special.
+
+      function InternalEncoderCesu8 (options, codec) {
+      }
+
+      InternalEncoderCesu8.prototype.write = function (str) {
+        const buf = Buffer.alloc(str.length * 3); let bufIdx = 0
+        for (let i = 0; i < str.length; i++) {
+          const charCode = str.charCodeAt(i)
+          // Naive implementation, but it works because CESU-8 is especially easy
+          // to convert from UTF-16 (which all JS strings are encoded in).
+          if (charCode < 0x80) { buf[bufIdx++] = charCode } else if (charCode < 0x800) {
+            buf[bufIdx++] = 0xC0 + (charCode >>> 6)
+            buf[bufIdx++] = 0x80 + (charCode & 0x3f)
+          } else { // charCode will always be < 0x10000 in javascript.
+            buf[bufIdx++] = 0xE0 + (charCode >>> 12)
+            buf[bufIdx++] = 0x80 + ((charCode >>> 6) & 0x3f)
+            buf[bufIdx++] = 0x80 + (charCode & 0x3f)
+          }
+        }
+        return buf.slice(0, bufIdx)
+      }
+
+      InternalEncoderCesu8.prototype.end = function () {
+      }
+
+      // ------------------------------------------------------------------------------
+      // CESU-8 decoder is not implemented in Node v4.0+
+
+      function InternalDecoderCesu8 (options, codec) {
+        this.acc = 0
+        this.contBytes = 0
+        this.accBytes = 0
+        this.defaultCharUnicode = codec.defaultCharUnicode
+      }
+
+      InternalDecoderCesu8.prototype.write = function (buf) {
+        let acc = this.acc; let contBytes = this.contBytes; let accBytes = this.accBytes
+        let res = ''
+        for (let i = 0; i < buf.length; i++) {
+          const curByte = buf[i]
+          if ((curByte & 0xC0) !== 0x80) { // Leading byte
+            if (contBytes > 0) { // Previous code is invalid
+              res += this.defaultCharUnicode
+              contBytes = 0
+            }
+
+            if (curByte < 0x80) { // Single-byte code
+              res += String.fromCharCode(curByte)
+            } else if (curByte < 0xE0) { // Two-byte code
+              acc = curByte & 0x1F
+              contBytes = 1; accBytes = 1
+            } else if (curByte < 0xF0) { // Three-byte code
+              acc = curByte & 0x0F
+              contBytes = 2; accBytes = 1
+            } else { // Four or more are not supported for CESU-8.
+              res += this.defaultCharUnicode
+            }
+          } else { // Continuation byte
+            if (contBytes > 0) { // We're waiting for it.
+              acc = (acc << 6) | (curByte & 0x3f)
+              contBytes--; accBytes++
+              if (contBytes === 0) {
+                // Check for overlong encoding, but support Modified UTF-8 (encoding NULL as C0 80)
+                if (accBytes === 2 && acc < 0x80 && acc > 0) { res += this.defaultCharUnicode } else if (accBytes === 3 && acc < 0x800) { res += this.defaultCharUnicode } else
+                // Actually add character.
+                { res += String.fromCharCode(acc) }
+              }
+            } else { // Unexpected continuation byte
+              res += this.defaultCharUnicode
+            }
+          }
+        }
+        this.acc = acc; this.contBytes = contBytes; this.accBytes = accBytes
+        return res
+      }
+
+      InternalDecoderCesu8.prototype.end = function () {
+        let res = 0
+        if (this.contBytes > 0) { res += this.defaultCharUnicode }
+        return res
+      }
+      /***/ },
+
+    /***/ 6459:
+    /***/ (__unused_webpack_module, exports, __nccwpck_require__) => {
+      'use strict'
+
+      const Buffer = (__nccwpck_require__(8343).Buffer)
+
+      // Single-byte codec. Needs a 'chars' string parameter that contains 256 or 128 chars that
+      // correspond to encoded bytes (if 128 - then lower half is ASCII).
+
+      exports._sbcs = SBCSCodec
+      function SBCSCodec (codecOptions, iconv) {
+        if (!codecOptions) { throw new Error('SBCS codec is called without the data.') }
+
+        // Prepare char buffer for decoding.
+        if (!codecOptions.chars || (codecOptions.chars.length !== 128 && codecOptions.chars.length !== 256)) { throw new Error("Encoding '" + codecOptions.type + "' has incorrect 'chars' (must be of len 128 or 256)") }
+
+        if (codecOptions.chars.length === 128) {
+          let asciiString = ''
+          for (var i = 0; i < 128; i++) { asciiString += String.fromCharCode(i) }
+          codecOptions.chars = asciiString + codecOptions.chars
+        }
+
+        this.decodeBuf = Buffer.from(codecOptions.chars, 'ucs2')
+
+        // Encoding buffer.
+        const encodeBuf = Buffer.alloc(65536, iconv.defaultCharSingleByte.charCodeAt(0))
+
+        for (var i = 0; i < codecOptions.chars.length; i++) { encodeBuf[codecOptions.chars.charCodeAt(i)] = i }
+
+        this.encodeBuf = encodeBuf
+      }
+
+      SBCSCodec.prototype.encoder = SBCSEncoder
+      SBCSCodec.prototype.decoder = SBCSDecoder
+
+      function SBCSEncoder (options, codec) {
+        this.encodeBuf = codec.encodeBuf
+      }
+
+      SBCSEncoder.prototype.write = function (str) {
+        const buf = Buffer.alloc(str.length)
+        for (let i = 0; i < str.length; i++) { buf[i] = this.encodeBuf[str.charCodeAt(i)] }
+
+        return buf
+      }
+
+      SBCSEncoder.prototype.end = function () {
+      }
+
+      function SBCSDecoder (options, codec) {
+        this.decodeBuf = codec.decodeBuf
+      }
+
+      SBCSDecoder.prototype.write = function (buf) {
+        // Strings are immutable in JS -> we use ucs2 buffer to speed up computations.
+        const decodeBuf = this.decodeBuf
+        const newBuf = Buffer.alloc(buf.length * 2)
+        let idx1 = 0; let idx2 = 0
+        for (let i = 0; i < buf.length; i++) {
+          idx1 = buf[i] * 2; idx2 = i * 2
+          newBuf[idx2] = decodeBuf[idx1]
+          newBuf[idx2 + 1] = decodeBuf[idx1 + 1]
+        }
+        return newBuf.toString('ucs2')
+      }
+
+      SBCSDecoder.prototype.end = function () {
+      }
+      /***/ },
+
+    /***/ 3472:
+    /***/ (module) => {
+      'use strict'
+
+      // Generated data for sbcs codec. Don't edit manually. Regenerate using generation/gen-sbcs.js script.
+      module.exports = {
+        437: 'cp437',
+        737: 'cp737',
+        775: 'cp775',
+        850: 'cp850',
+        852: 'cp852',
+        855: 'cp855',
+        856: 'cp856',
+        857: 'cp857',
+        858: 'cp858',
+        860: 'cp860',
+        861: 'cp861',
+        862: 'cp862',
+        863: 'cp863',
+        864: 'cp864',
+        865: 'cp865',
+        866: 'cp866',
+        869: 'cp869',
+        874: 'windows874',
+        922: 'cp922',
+        1046: 'cp1046',
+        1124: 'cp1124',
+        1125: 'cp1125',
+        1129: 'cp1129',
+        1133: 'cp1133',
+        1161: 'cp1161',
+        1162: 'cp1162',
+        1163: 'cp1163',
+        1250: 'windows1250',
+        1251: 'windows1251',
+        1252: 'windows1252',
+        1253: 'windows1253',
+        1254: 'windows1254',
+        1255: 'windows1255',
+        1256: 'windows1256',
+        1257: 'windows1257',
+        1258: 'windows1258',
+        28591: 'iso88591',
+        28592: 'iso88592',
+        28593: 'iso88593',
+        28594: 'iso88594',
+        28595: 'iso88595',
+        28596: 'iso88596',
+        28597: 'iso88597',
+        28598: 'iso88598',
+        28599: 'iso88599',
+        28600: 'iso885910',
+        28601: 'iso885911',
+        28603: 'iso885913',
+        28604: 'iso885914',
+        28605: 'iso885915',
+        28606: 'iso885916',
+        windows874: {
+          type: '_sbcs',
+          chars: '€����…�����������‘’“”•–—�������� กขฃคฅฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรฤลฦวศษสหฬอฮฯะัาำิีึืฺุู����฿เแโใไๅๆ็่้๊๋์ํ๎๏๐๑๒๓๔๕๖๗๘๙๚๛����'
+        },
+        win874: 'windows874',
+        cp874: 'windows874',
+        windows1250: {
+          type: '_sbcs',
+          chars: '€�‚�„…†‡�‰Š‹ŚŤŽŹ�‘’“”•–—�™š›śťžź ˇ˘Ł¤Ą¦§¨©Ş«¬­®Ż°±˛ł´µ¶·¸ąş»Ľ˝ľżŔÁÂĂÄĹĆÇČÉĘËĚÍÎĎĐŃŇÓÔŐÖ×ŘŮÚŰÜÝŢßŕáâăäĺćçčéęëěíîďđńňóôőö÷řůúűüýţ˙'
+        },
+        win1250: 'windows1250',
+        cp1250: 'windows1250',
+        windows1251: {
+          type: '_sbcs',
+          chars: 'ЂЃ‚ѓ„…†‡€‰Љ‹ЊЌЋЏђ‘’“”•–—�™љ›њќћџ ЎўЈ¤Ґ¦§Ё©Є«¬­®Ї°±Ііґµ¶·ё№є»јЅѕїАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя'
+        },
+        win1251: 'windows1251',
+        cp1251: 'windows1251',
+        windows1252: {
+          type: '_sbcs',
+          chars: '€�‚ƒ„…†‡ˆ‰Š‹Œ�Ž��‘’“”•–—˜™š›œ�žŸ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ'
+        },
+        win1252: 'windows1252',
+        cp1252: 'windows1252',
+        windows1253: {
+          type: '_sbcs',
+          chars: '€�‚ƒ„…†‡�‰�‹�����‘’“”•–—�™�›���� ΅Ά£¤¥¦§¨©�«¬­®―°±²³΄µ¶·ΈΉΊ»Ό½ΎΏΐΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡ�ΣΤΥΦΧΨΩΪΫάέήίΰαβγδεζηθικλμνξοπρςστυφχψωϊϋόύώ�'
+        },
+        win1253: 'windows1253',
+        cp1253: 'windows1253',
+        windows1254: {
+          type: '_sbcs',
+          chars: '€�‚ƒ„…†‡ˆ‰Š‹Œ����‘’“”•–—˜™š›œ��Ÿ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏĞÑÒÓÔÕÖ×ØÙÚÛÜİŞßàáâãäåæçèéêëìíîïğñòóôõö÷øùúûüışÿ'
+        },
+        win1254: 'windows1254',
+        cp1254: 'windows1254',
+        windows1255: {
+          type: '_sbcs',
+          chars: '€�‚ƒ„…†‡ˆ‰�‹�����‘’“”•–—˜™�›���� ¡¢£₪¥¦§¨©×«¬­®¯°±²³´µ¶·¸¹÷»¼½¾¿ְֱֲֳִֵֶַָֹֺֻּֽ־ֿ׀ׁׂ׃װױײ׳״�������אבגדהוזחטיךכלםמןנסעףפץצקרשת��‎‏�'
+        },
+        win1255: 'windows1255',
+        cp1255: 'windows1255',
+        windows1256: {
+          type: '_sbcs',
+          chars: '€پ‚ƒ„…†‡ˆ‰ٹ‹Œچژڈگ‘’“”•–—ک™ڑ›œ‌‍ں ،¢£¤¥¦§¨©ھ«¬­®¯°±²³´µ¶·¸¹؛»¼½¾؟ہءآأؤإئابةتثجحخدذرزسشصض×طظعغـفقكàلâمنهوçèéêëىيîïًٌٍَôُِ÷ّùْûü‎‏ے'
+        },
+        win1256: 'windows1256',
+        cp1256: 'windows1256',
+        windows1257: {
+          type: '_sbcs',
+          chars: '€�‚�„…†‡�‰�‹�¨ˇ¸�‘’“”•–—�™�›�¯˛� �¢£¤�¦§Ø©Ŗ«¬­®Æ°±²³´µ¶·ø¹ŗ»¼½¾æĄĮĀĆÄÅĘĒČÉŹĖĢĶĪĻŠŃŅÓŌÕÖ×ŲŁŚŪÜŻŽßąįāćäåęēčéźėģķīļšńņóōõö÷ųłśūüżž˙'
+        },
+        win1257: 'windows1257',
+        cp1257: 'windows1257',
+        windows1258: {
+          type: '_sbcs',
+          chars: '€�‚ƒ„…†‡ˆ‰�‹Œ����‘’“”•–—˜™�›œ��Ÿ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂĂÄÅÆÇÈÉÊË̀ÍÎÏĐÑ̉ÓÔƠÖ×ØÙÚÛÜỮßàáâăäåæçèéêë́íîïđṇ̃óôơö÷øùúûüư₫ÿ'
+        },
+        win1258: 'windows1258',
+        cp1258: 'windows1258',
+        iso88591: {
+          type: '_sbcs',
+          chars: ' ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ'
+        },
+        cp28591: 'iso88591',
+        iso88592: {
+          type: '_sbcs',
+          chars: ' Ą˘Ł¤ĽŚ§¨ŠŞŤŹ­ŽŻ°ą˛ł´ľśˇ¸šşťź˝žżŔÁÂĂÄĹĆÇČÉĘËĚÍÎĎĐŃŇÓÔŐÖ×ŘŮÚŰÜÝŢßŕáâăäĺćçčéęëěíîďđńňóôőö÷řůúűüýţ˙'
+        },
+        cp28592: 'iso88592',
+        iso88593: {
+          type: '_sbcs',
+          chars: ' Ħ˘£¤�Ĥ§¨İŞĞĴ­�Ż°ħ²³´µĥ·¸ışğĵ½�żÀÁÂ�ÄĊĈÇÈÉÊËÌÍÎÏ�ÑÒÓÔĠÖ×ĜÙÚÛÜŬŜßàáâ�äċĉçèéêëìíîï�ñòóôġö÷ĝùúûüŭŝ˙'
+        },
+        cp28593: 'iso88593',
+        iso88594: {
+          type: '_sbcs',
+          chars: ' ĄĸŖ¤ĨĻ§¨ŠĒĢŦ­Ž¯°ą˛ŗ´ĩļˇ¸šēģŧŊžŋĀÁÂÃÄÅÆĮČÉĘËĖÍÎĪĐŅŌĶÔÕÖ×ØŲÚÛÜŨŪßāáâãäåæįčéęëėíîīđņōķôõö÷øųúûüũū˙'
+        },
+        cp28594: 'iso88594',
+        iso88595: {
+          type: '_sbcs',
+          chars: ' ЁЂЃЄЅІЇЈЉЊЋЌ­ЎЏАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя№ёђѓєѕіїјљњћќ§ўџ'
+        },
+        cp28595: 'iso88595',
+        iso88596: {
+          type: '_sbcs',
+          chars: ' ���¤�������،­�������������؛���؟�ءآأؤإئابةتثجحخدذرزسشصضطظعغ�����ـفقكلمنهوىيًٌٍَُِّْ�������������'
+        },
+        cp28596: 'iso88596',
+        iso88597: {
+          type: '_sbcs',
+          chars: ' ‘’£€₯¦§¨©ͺ«¬­�―°±²³΄΅Ά·ΈΉΊ»Ό½ΎΏΐΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡ�ΣΤΥΦΧΨΩΪΫάέήίΰαβγδεζηθικλμνξοπρςστυφχψωϊϋόύώ�'
+        },
+        cp28597: 'iso88597',
+        iso88598: {
+          type: '_sbcs',
+          chars: ' �¢£¤¥¦§¨©×«¬­®¯°±²³´µ¶·¸¹÷»¼½¾��������������������������������‗אבגדהוזחטיךכלםמןנסעףפץצקרשת��‎‏�'
+        },
+        cp28598: 'iso88598',
+        iso88599: {
+          type: '_sbcs',
+          chars: ' ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏĞÑÒÓÔÕÖ×ØÙÚÛÜİŞßàáâãäåæçèéêëìíîïğñòóôõö÷øùúûüışÿ'
+        },
+        cp28599: 'iso88599',
+        iso885910: {
+          type: '_sbcs',
+          chars: ' ĄĒĢĪĨĶ§ĻĐŠŦŽ­ŪŊ°ąēģīĩķ·ļđšŧž―ūŋĀÁÂÃÄÅÆĮČÉĘËĖÍÎÏÐŅŌÓÔÕÖŨØŲÚÛÜÝÞßāáâãäåæįčéęëėíîïðņōóôõöũøųúûüýþĸ'
+        },
+        cp28600: 'iso885910',
+        iso885911: {
+          type: '_sbcs',
+          chars: ' กขฃคฅฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรฤลฦวศษสหฬอฮฯะัาำิีึืฺุู����฿เแโใไๅๆ็่้๊๋์ํ๎๏๐๑๒๓๔๕๖๗๘๙๚๛����'
+        },
+        cp28601: 'iso885911',
+        iso885913: {
+          type: '_sbcs',
+          chars: ' ”¢£¤„¦§Ø©Ŗ«¬­®Æ°±²³“µ¶·ø¹ŗ»¼½¾æĄĮĀĆÄÅĘĒČÉŹĖĢĶĪĻŠŃŅÓŌÕÖ×ŲŁŚŪÜŻŽßąįāćäåęēčéźėģķīļšńņóōõö÷ųłśūüżž’'
+        },
+        cp28603: 'iso885913',
+        iso885914: {
+          type: '_sbcs',
+          chars: ' Ḃḃ£ĊċḊ§Ẁ©ẂḋỲ­®ŸḞḟĠġṀṁ¶ṖẁṗẃṠỳẄẅṡÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏŴÑÒÓÔÕÖṪØÙÚÛÜÝŶßàáâãäåæçèéêëìíîïŵñòóôõöṫøùúûüýŷÿ'
+        },
+        cp28604: 'iso885914',
+        iso885915: {
+          type: '_sbcs',
+          chars: ' ¡¢£€¥Š§š©ª«¬­®¯°±²³Žµ¶·ž¹º»ŒœŸ¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ'
+        },
+        cp28605: 'iso885915',
+        iso885916: {
+          type: '_sbcs',
+          chars: ' ĄąŁ€„Š§š©Ș«Ź­źŻ°±ČłŽ”¶·žčș»ŒœŸżÀÁÂĂÄĆÆÇÈÉÊËÌÍÎÏĐŃÒÓÔŐÖŚŰÙÚÛÜĘȚßàáâăäćæçèéêëìíîïđńòóôőöśűùúûüęțÿ'
+        },
+        cp28606: 'iso885916',
+        cp437: {
+          type: '_sbcs',
+          chars: 'ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ '
+        },
+        ibm437: 'cp437',
+        csibm437: 'cp437',
+        cp737: {
+          type: '_sbcs',
+          chars: 'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩαβγδεζηθικλμνξοπρσςτυφχψ░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀ωάέήϊίόύϋώΆΈΉΊΌΎΏ±≥≤ΪΫ÷≈°∙·√ⁿ²■ '
+        },
+        ibm737: 'cp737',
+        csibm737: 'cp737',
+        cp775: {
+          type: '_sbcs',
+          chars: 'ĆüéāäģåćłēŖŗīŹÄÅÉæÆōöĢ¢ŚśÖÜø£Ø×¤ĀĪóŻżź”¦©®¬½¼Ł«»░▒▓│┤ĄČĘĖ╣║╗╝ĮŠ┐└┴┬├─┼ŲŪ╚╔╩╦╠═╬Žąčęėįšųūž┘┌█▄▌▐▀ÓßŌŃõÕµńĶķĻļņĒŅ’­±“¾¶§÷„°∙·¹³²■ '
+        },
+        ibm775: 'cp775',
+        csibm775: 'cp775',
+        cp850: {
+          type: '_sbcs',
+          chars: 'ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜø£Ø×ƒáíóúñÑªº¿®¬½¼¡«»░▒▓│┤ÁÂÀ©╣║╗╝¢¥┐└┴┬├─┼ãÃ╚╔╩╦╠═╬¤ðÐÊËÈıÍÎÏ┘┌█▄¦Ì▀ÓßÔÒõÕµþÞÚÛÙýÝ¯´­±‗¾¶§÷¸°¨·¹³²■ '
+        },
+        ibm850: 'cp850',
+        csibm850: 'cp850',
+        cp852: {
+          type: '_sbcs',
+          chars: 'ÇüéâäůćçłëŐőîŹÄĆÉĹĺôöĽľŚśÖÜŤťŁ×čáíóúĄąŽžĘę¬źČş«»░▒▓│┤ÁÂĚŞ╣║╗╝Żż┐└┴┬├─┼Ăă╚╔╩╦╠═╬¤đĐĎËďŇÍÎě┘┌█▄ŢŮ▀ÓßÔŃńňŠšŔÚŕŰýÝţ´­˝˛ˇ˘§÷¸°¨˙űŘř■ '
+        },
+        ibm852: 'cp852',
+        csibm852: 'cp852',
+        cp855: {
+          type: '_sbcs',
+          chars: 'ђЂѓЃёЁєЄѕЅіІїЇјЈљЉњЊћЋќЌўЎџЏюЮъЪаАбБцЦдДеЕфФгГ«»░▒▓│┤хХиИ╣║╗╝йЙ┐└┴┬├─┼кК╚╔╩╦╠═╬¤лЛмМнНоОп┘┌█▄Пя▀ЯрРсСтТуУжЖвВьЬ№­ыЫзЗшШэЭщЩчЧ§■ '
+        },
+        ibm855: 'cp855',
+        csibm855: 'cp855',
+        cp856: {
+          type: '_sbcs',
+          chars: 'אבגדהוזחטיךכלםמןנסעףפץצקרשת�£�×����������®¬½¼�«»░▒▓│┤���©╣║╗╝¢¥┐└┴┬├─┼��╚╔╩╦╠═╬¤���������┘┌█▄¦�▀������µ�������¯´­±‗¾¶§÷¸°¨·¹³²■ '
+        },
+        ibm856: 'cp856',
+        csibm856: 'cp856',
+        cp857: {
+          type: '_sbcs',
+          chars: 'ÇüéâäàåçêëèïîıÄÅÉæÆôöòûùİÖÜø£ØŞşáíóúñÑĞğ¿®¬½¼¡«»░▒▓│┤ÁÂÀ©╣║╗╝¢¥┐└┴┬├─┼ãÃ╚╔╩╦╠═╬¤ºªÊËÈ�ÍÎÏ┘┌█▄¦Ì▀ÓßÔÒõÕµ�×ÚÛÙìÿ¯´­±�¾¶§÷¸°¨·¹³²■ '
+        },
+        ibm857: 'cp857',
+        csibm857: 'cp857',
+        cp858: {
+          type: '_sbcs',
+          chars: 'ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜø£Ø×ƒáíóúñÑªº¿®¬½¼¡«»░▒▓│┤ÁÂÀ©╣║╗╝¢¥┐└┴┬├─┼ãÃ╚╔╩╦╠═╬¤ðÐÊËÈ€ÍÎÏ┘┌█▄¦Ì▀ÓßÔÒõÕµþÞÚÛÙýÝ¯´­±‗¾¶§÷¸°¨·¹³²■ '
+        },
+        ibm858: 'cp858',
+        csibm858: 'cp858',
+        cp860: {
+          type: '_sbcs',
+          chars: 'ÇüéâãàÁçêÊèÍÔìÃÂÉÀÈôõòÚùÌÕÜ¢£Ù₧ÓáíóúñÑªº¿Ò¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ '
+        },
+        ibm860: 'cp860',
+        csibm860: 'cp860',
+        cp861: {
+          type: '_sbcs',
+          chars: 'ÇüéâäàåçêëèÐðÞÄÅÉæÆôöþûÝýÖÜø£Ø₧ƒáíóúÁÍÓÚ¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ '
+        },
+        ibm861: 'cp861',
+        csibm861: 'cp861',
+        cp862: {
+          type: '_sbcs',
+          chars: 'אבגדהוזחטיךכלםמןנסעףפץצקרשת¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ '
+        },
+        ibm862: 'cp862',
+        csibm862: 'cp862',
+        cp863: {
+          type: '_sbcs',
+          chars: 'ÇüéâÂà¶çêëèïî‗À§ÉÈÊôËÏûù¤ÔÜ¢£ÙÛƒ¦´óú¨¸³¯Î⌐¬½¼¾«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ '
+        },
+        ibm863: 'cp863',
+        csibm863: 'cp863',
+        cp864: {
+          type: '_sbcs',
+          chars: "\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n\u000b\f\r\u000e\u000f\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f !\"#$٪&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~°·∙√▒─│┼┤┬├┴┐┌└┘β∞φ±½¼≈«»ﻷﻸ��ﻻﻼ� ­ﺂ£¤ﺄ��ﺎﺏﺕﺙ،ﺝﺡﺥ٠١٢٣٤٥٦٧٨٩ﻑ؛ﺱﺵﺹ؟¢ﺀﺁﺃﺅﻊﺋﺍﺑﺓﺗﺛﺟﺣﺧﺩﺫﺭﺯﺳﺷﺻﺿﻁﻅﻋﻏ¦¬÷×ﻉـﻓﻗﻛﻟﻣﻧﻫﻭﻯﻳﺽﻌﻎﻍﻡﹽّﻥﻩﻬﻰﻲﻐﻕﻵﻶﻝﻙﻱ■�"
+        },
+        ibm864: 'cp864',
+        csibm864: 'cp864',
+        cp865: {
+          type: '_sbcs',
+          chars: 'ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜø£Ø₧ƒáíóúñÑªº¿⌐¬½¼¡«¤░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ '
+        },
+        ibm865: 'cp865',
+        csibm865: 'cp865',
+        cp866: {
+          type: '_sbcs',
+          chars: 'АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмноп░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀рстуфхцчшщъыьэюяЁёЄєЇїЎў°∙·√№¤■ '
+        },
+        ibm866: 'cp866',
+        csibm866: 'cp866',
+        cp869: {
+          type: '_sbcs',
+          chars: '������Ά�·¬¦‘’Έ―ΉΊΪΌ��ΎΫ©Ώ²³ά£έήίϊΐόύΑΒΓΔΕΖΗ½ΘΙ«»░▒▓│┤ΚΛΜΝ╣║╗╝ΞΟ┐└┴┬├─┼ΠΡ╚╔╩╦╠═╬ΣΤΥΦΧΨΩαβγ┘┌█▄δε▀ζηθικλμνξοπρσςτ΄­±υφχ§ψ΅°¨ωϋΰώ■ '
+        },
+        ibm869: 'cp869',
+        csibm869: 'cp869',
+        cp922: {
+          type: '_sbcs',
+          chars: ' ¡¢£¤¥¦§¨©ª«¬­®‾°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏŠÑÒÓÔÕÖ×ØÙÚÛÜÝŽßàáâãäåæçèéêëìíîïšñòóôõö÷øùúûüýžÿ'
+        },
+        ibm922: 'cp922',
+        csibm922: 'cp922',
+        cp1046: {
+          type: '_sbcs',
+          chars: 'ﺈ×÷ﹱ■│─┐┌└┘ﹹﹻﹽﹿﹷﺊﻰﻳﻲﻎﻏﻐﻶﻸﻺﻼ ¤ﺋﺑﺗﺛﺟﺣ،­ﺧﺳ٠١٢٣٤٥٦٧٨٩ﺷ؛ﺻﺿﻊ؟ﻋءآأؤإئابةتثجحخدذرزسشصضطﻇعغﻌﺂﺄﺎﻓـفقكلمنهوىيًٌٍَُِّْﻗﻛﻟﻵﻷﻹﻻﻣﻧﻬﻩ�'
+        },
+        ibm1046: 'cp1046',
+        csibm1046: 'cp1046',
+        cp1124: {
+          type: '_sbcs',
+          chars: ' ЁЂҐЄЅІЇЈЉЊЋЌ­ЎЏАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя№ёђґєѕіїјљњћќ§ўџ'
+        },
+        ibm1124: 'cp1124',
+        csibm1124: 'cp1124',
+        cp1125: {
+          type: '_sbcs',
+          chars: 'АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмноп░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀рстуфхцчшщъыьэюяЁёҐґЄєІіЇї·√№¤■ '
+        },
+        ibm1125: 'cp1125',
+        csibm1125: 'cp1125',
+        cp1129: {
+          type: '_sbcs',
+          chars: ' ¡¢£¤¥¦§œ©ª«¬­®¯°±²³Ÿµ¶·Œ¹º»¼½¾¿ÀÁÂĂÄÅÆÇÈÉÊË̀ÍÎÏĐÑ̉ÓÔƠÖ×ØÙÚÛÜỮßàáâăäåæçèéêë́íîïđṇ̃óôơö÷øùúûüư₫ÿ'
+        },
+        ibm1129: 'cp1129',
+        csibm1129: 'cp1129',
+        cp1133: {
+          type: '_sbcs',
+          chars: ' ກຂຄງຈສຊຍດຕຖທນບປຜຝພຟມຢຣລວຫອຮ���ຯະາຳິີຶືຸູຼັົຽ���ເແໂໃໄ່້໊໋໌ໍໆ�ໜໝ₭����������������໐໑໒໓໔໕໖໗໘໙��¢¬¦�'
+        },
+        ibm1133: 'cp1133',
+        csibm1133: 'cp1133',
+        cp1161: {
+          type: '_sbcs',
+          chars: '��������������������������������่กขฃคฅฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรฤลฦวศษสหฬอฮฯะัาำิีึืฺุู้๊๋€฿เแโใไๅๆ็่้๊๋์ํ๎๏๐๑๒๓๔๕๖๗๘๙๚๛¢¬¦ '
+        },
+        ibm1161: 'cp1161',
+        csibm1161: 'cp1161',
+        cp1162: {
+          type: '_sbcs',
+          chars: '€…‘’“”•–— กขฃคฅฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรฤลฦวศษสหฬอฮฯะัาำิีึืฺุู����฿เแโใไๅๆ็่้๊๋์ํ๎๏๐๑๒๓๔๕๖๗๘๙๚๛����'
+        },
+        ibm1162: 'cp1162',
+        csibm1162: 'cp1162',
+        cp1163: {
+          type: '_sbcs',
+          chars: ' ¡¢£€¥¦§œ©ª«¬­®¯°±²³Ÿµ¶·Œ¹º»¼½¾¿ÀÁÂĂÄÅÆÇÈÉÊË̀ÍÎÏĐÑ̉ÓÔƠÖ×ØÙÚÛÜỮßàáâăäåæçèéêë́íîïđṇ̃óôơö÷øùúûüư₫ÿ'
+        },
+        ibm1163: 'cp1163',
+        csibm1163: 'cp1163',
+        maccroatian: {
+          type: '_sbcs',
+          chars: 'ÄÅÇÉÑÖÜáàâäãåçéèêëíìîïñóòôöõúùûü†°¢£§•¶ß®Š™´¨≠ŽØ∞±≤≥∆µ∂∑∏š∫ªºΩžø¿¡¬√ƒ≈Ć«Č… ÀÃÕŒœĐ—“”‘’÷◊�©⁄¤‹›Æ»–·‚„‰ÂćÁčÈÍÎÏÌÓÔđÒÚÛÙıˆ˜¯πË˚¸Êæˇ'
+        },
+        maccyrillic: {
+          type: '_sbcs',
+          chars: 'АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ†°¢£§•¶І®©™Ђђ≠Ѓѓ∞±≤≥іµ∂ЈЄєЇїЉљЊњјЅ¬√ƒ≈∆«»… ЋћЌќѕ–—“”‘’÷„ЎўЏџ№Ёёяабвгдежзийклмнопрстуфхцчшщъыьэю¤'
+        },
+        macgreek: {
+          type: '_sbcs',
+          chars: 'Ä¹²É³ÖÜ΅àâä΄¨çéèêë£™îï•½‰ôö¦­ùûü†ΓΔΘΛΞΠß®©ΣΪ§≠°·Α±≤≥¥ΒΕΖΗΙΚΜΦΫΨΩάΝ¬ΟΡ≈Τ«»… ΥΧΆΈœ–―“”‘’÷ΉΊΌΎέήίόΏύαβψδεφγηιξκλμνοπώρστθωςχυζϊϋΐΰ�'
+        },
+        maciceland: {
+          type: '_sbcs',
+          chars: 'ÄÅÇÉÑÖÜáàâäãåçéèêëíìîïñóòôöõúùûüÝ°¢£§•¶ß®©™´¨≠ÆØ∞±≤≥¥µ∂∑∏π∫ªºΩæø¿¡¬√ƒ≈∆«»… ÀÃÕŒœ–—“”‘’÷◊ÿŸ⁄¤ÐðÞþý·‚„‰ÂÊÁËÈÍÎÏÌÓÔ�ÒÚÛÙıˆ˜¯˘˙˚¸˝˛ˇ'
+        },
+        macroman: {
+          type: '_sbcs',
+          chars: 'ÄÅÇÉÑÖÜáàâäãåçéèêëíìîïñóòôöõúùûü†°¢£§•¶ß®©™´¨≠ÆØ∞±≤≥¥µ∂∑∏π∫ªºΩæø¿¡¬√ƒ≈∆«»… ÀÃÕŒœ–—“”‘’÷◊ÿŸ⁄¤‹›ﬁﬂ‡·‚„‰ÂÊÁËÈÍÎÏÌÓÔ�ÒÚÛÙıˆ˜¯˘˙˚¸˝˛ˇ'
+        },
+        macromania: {
+          type: '_sbcs',
+          chars: 'ÄÅÇÉÑÖÜáàâäãåçéèêëíìîïñóòôöõúùûü†°¢£§•¶ß®©™´¨≠ĂŞ∞±≤≥¥µ∂∑∏π∫ªºΩăş¿¡¬√ƒ≈∆«»… ÀÃÕŒœ–—“”‘’÷◊ÿŸ⁄¤‹›Ţţ‡·‚„‰ÂÊÁËÈÍÎÏÌÓÔ�ÒÚÛÙıˆ˜¯˘˙˚¸˝˛ˇ'
+        },
+        macthai: {
+          type: '_sbcs',
+          chars: '«»…“”�•‘’� กขฃคฅฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรฤลฦวศษสหฬอฮฯะัาำิีึืฺุู﻿​–—฿เแโใไๅๆ็่้๊๋์ํ™๏๐๑๒๓๔๕๖๗๘๙®©����'
+        },
+        macturkish: {
+          type: '_sbcs',
+          chars: 'ÄÅÇÉÑÖÜáàâäãåçéèêëíìîïñóòôöõúùûü†°¢£§•¶ß®©™´¨≠ÆØ∞±≤≥¥µ∂∑∏π∫ªºΩæø¿¡¬√ƒ≈∆«»… ÀÃÕŒœ–—“”‘’÷◊ÿŸĞğİıŞş‡·‚„‰ÂÊÁËÈÍÎÏÌÓÔ�ÒÚÛÙ�ˆ˜¯˘˙˚¸˝˛ˇ'
+        },
+        macukraine: {
+          type: '_sbcs',
+          chars: 'АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ†°Ґ£§•¶І®©™Ђђ≠Ѓѓ∞±≤≥іµґЈЄєЇїЉљЊњјЅ¬√ƒ≈∆«»… ЋћЌќѕ–—“”‘’÷„ЎўЏџ№Ёёяабвгдежзийклмнопрстуфхцчшщъыьэю¤'
+        },
+        koi8r: {
+          type: '_sbcs',
+          chars: '─│┌┐└┘├┤┬┴┼▀▄█▌▐░▒▓⌠■∙√≈≤≥ ⌡°²·÷═║╒ё╓╔╕╖╗╘╙╚╛╜╝╞╟╠╡Ё╢╣╤╥╦╧╨╩╪╫╬©юабцдефгхийклмнопярстужвьызшэщчъЮАБЦДЕФГХИЙКЛМНОПЯРСТУЖВЬЫЗШЭЩЧЪ'
+        },
+        koi8u: {
+          type: '_sbcs',
+          chars: '─│┌┐└┘├┤┬┴┼▀▄█▌▐░▒▓⌠■∙√≈≤≥ ⌡°²·÷═║╒ёє╔ії╗╘╙╚╛ґ╝╞╟╠╡ЁЄ╣ІЇ╦╧╨╩╪Ґ╬©юабцдефгхийклмнопярстужвьызшэщчъЮАБЦДЕФГХИЙКЛМНОПЯРСТУЖВЬЫЗШЭЩЧЪ'
+        },
+        koi8ru: {
+          type: '_sbcs',
+          chars: '─│┌┐└┘├┤┬┴┼▀▄█▌▐░▒▓⌠■∙√≈≤≥ ⌡°²·÷═║╒ёє╔ії╗╘╙╚╛ґў╞╟╠╡ЁЄ╣ІЇ╦╧╨╩╪ҐЎ©юабцдефгхийклмнопярстужвьызшэщчъЮАБЦДЕФГХИЙКЛМНОПЯРСТУЖВЬЫЗШЭЩЧЪ'
+        },
+        koi8t: {
+          type: '_sbcs',
+          chars: 'қғ‚Ғ„…†‡�‰ҳ‹ҲҷҶ�Қ‘’“”•–—�™�›�����ӯӮё¤ӣ¦§���«¬­®�°±²Ё�Ӣ¶·�№�»���©юабцдефгхийклмнопярстужвьызшэщчъЮАБЦДЕФГХИЙКЛМНОПЯРСТУЖВЬЫЗШЭЩЧЪ'
+        },
+        armscii8: {
+          type: '_sbcs',
+          chars: ' �և։)(»«—.՝,-֊…՜՛՞ԱաԲբԳգԴդԵեԶզԷէԸըԹթԺժԻիԼլԽխԾծԿկՀհՁձՂղՃճՄմՅյՆնՇշՈոՉչՊպՋջՌռՍսՎվՏտՐրՑցՒւՓփՔքՕօՖֆ՚�'
+        },
+        rk1048: {
+          type: '_sbcs',
+          chars: 'ЂЃ‚ѓ„…†‡€‰Љ‹ЊҚҺЏђ‘’“”•–—�™љ›њқһџ ҰұӘ¤Ө¦§Ё©Ғ«¬­®Ү°±Ііөµ¶·ё№ғ»әҢңүАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя'
+        },
+        tcvn: {
+          type: '_sbcs',
+          chars: "\u0000ÚỤ\u0003ỪỬỮ\u0007\b\t\n\u000b\f\r\u000e\u000f\u0010ỨỰỲỶỸÝỴ\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~ÀẢÃÁẠẶẬÈẺẼÉẸỆÌỈĨÍỊÒỎÕÓỌỘỜỞỠỚỢÙỦŨ ĂÂÊÔƠƯĐăâêôơưđẶ̀̀̉̃́àảãáạẲằẳẵắẴẮẦẨẪẤỀặầẩẫấậèỂẻẽéẹềểễếệìỉỄẾỒĩíịòỔỏõóọồổỗốộờởỡớợùỖủũúụừửữứựỳỷỹýỵỐ"
+        },
+        georgianacademy: {
+          type: '_sbcs',
+          chars: '‚ƒ„…†‡ˆ‰Š‹Œ‘’“”•–—˜™š›œŸ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿აბგდევზთიკლმნოპჟრსტუფქღყშჩცძწჭხჯჰჱჲჳჴჵჶçèéêëìíîïðñòóôõö÷øùúûüýþÿ'
+        },
+        georgianps: {
+          type: '_sbcs',
+          chars: '‚ƒ„…†‡ˆ‰Š‹Œ‘’“”•–—˜™š›œŸ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿აბგდევზჱთიკლმნჲოპჟრსტჳუფქღყშჩცძწჭხჴჯჰჵæçèéêëìíîïðñòóôõö÷øùúûüýþÿ'
+        },
+        pt154: {
+          type: '_sbcs',
+          chars: 'ҖҒӮғ„…ҶҮҲүҠӢҢҚҺҸҗ‘’“”•–—ҳҷҡӣңқһҹ ЎўЈӨҘҰ§Ё©Ә«¬ӯ®Ҝ°ұІіҙө¶·ё№ә»јҪҫҝАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя'
+        },
+        viscii: {
+          type: '_sbcs',
+          chars: "\u0000\u0001Ẳ\u0003\u0004ẴẪ\u0007\b\t\n\u000b\f\r\u000e\u000f\u0010\u0011\u0012\u0013Ỷ\u0015\u0016\u0017\u0018Ỹ\u001a\u001b\u001c\u001dỴ\u001f !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~ẠẮẰẶẤẦẨẬẼẸẾỀỂỄỆỐỒỔỖỘỢỚỜỞỊỎỌỈỦŨỤỲÕắằặấầẩậẽẹếềểễệốồổỗỠƠộờởịỰỨỪỬơớƯÀÁÂÃẢĂẳẵÈÉÊẺÌÍĨỳĐứÒÓÔạỷừửÙÚỹỵÝỡưàáâãảăữẫèéêẻìíĩỉđựòóôõỏọụùúũủýợỮ"
+        },
+        iso646cn: {
+          type: '_sbcs',
+          chars: "\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n\u000b\f\r\u000e\u000f\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f !\"#¥%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}‾��������������������������������������������������������������������������������������������������������������������������������"
+        },
+        iso646jp: {
+          type: '_sbcs',
+          chars: "\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n\u000b\f\r\u000e\u000f\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[¥]^_`abcdefghijklmnopqrstuvwxyz{|}‾��������������������������������������������������������������������������������������������������������������������������������"
+        },
+        hproman8: {
+          type: '_sbcs',
+          chars: ' ÀÂÈÊËÎÏ´ˋˆ¨˜ÙÛ₤¯Ýý°ÇçÑñ¡¿¤£¥§ƒ¢âêôûáéóúàèòùäëöüÅîØÆåíøæÄìÖÜÉïßÔÁÃãÐðÍÌÓÒÕõŠšÚŸÿÞþ·µ¶¾—¼½ªº«■»±�'
+        },
+        macintosh: {
+          type: '_sbcs',
+          chars: 'ÄÅÇÉÑÖÜáàâäãåçéèêëíìîïñóòôöõúùûü†°¢£§•¶ß®©™´¨≠ÆØ∞±≤≥¥µ∂∑∏π∫ªºΩæø¿¡¬√ƒ≈∆«»… ÀÃÕŒœ–—“”‘’÷◊ÿŸ⁄¤‹›ﬁﬂ‡·‚„‰ÂÊÁËÈÍÎÏÌÓÔ�ÒÚÛÙıˆ˜¯˘˙˚¸˝˛ˇ'
+        },
+        ascii: {
+          type: '_sbcs',
+          chars: '��������������������������������������������������������������������������������������������������������������������������������'
+        },
+        tis620: {
+          type: '_sbcs',
+          chars: '���������������������������������กขฃคฅฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรฤลฦวศษสหฬอฮฯะัาำิีึืฺุู����฿เแโใไๅๆ็่้๊๋์ํ๎๏๐๑๒๓๔๕๖๗๘๙๚๛����'
+        }
+      }
+      /***/ },
+
+    /***/ 2147:
+    /***/ (module) => {
+      'use strict'
+
+      // Manually added data to be used by sbcs codec in addition to generated one.
+
+      module.exports = {
+        // Not supported by iconv, not sure why.
+        10029: 'maccenteuro',
+        maccenteuro: {
+          type: '_sbcs',
+          chars: 'ÄĀāÉĄÖÜáąČäčĆćéŹźĎíďĒēĖóėôöõúĚěü†°Ę£§•¶ß®©™ę¨≠ģĮįĪ≤≥īĶ∂∑łĻļĽľĹĺŅņŃ¬√ńŇ∆«»… ňŐÕőŌ–—“”‘’÷◊ōŔŕŘ‹›řŖŗŠ‚„šŚśÁŤťÍŽžŪÓÔūŮÚůŰűŲųÝýķŻŁżĢˇ'
+        },
+
+        808: 'cp808',
+        ibm808: 'cp808',
+        cp808: {
+          type: '_sbcs',
+          chars: 'АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмноп░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀рстуфхцчшщъыьэюяЁёЄєЇїЎў°∙·√№€■ '
+        },
+
+        mik: {
+          type: '_sbcs',
+          chars: 'АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя└┴┬├─┼╣║╚╔╩╦╠═╬┐░▒▓│┤№§╗╝┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ '
+        },
+
+        cp720: {
+          type: '_sbcs',
+          chars: '\x80\x81éâ\x84à\x86çêëèïî\x8d\x8e\x8f\x90\u0651\u0652ô¤ـûùءآأؤ£إئابةتثجحخدذرزسشص«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀ضطظعغفµقكلمنهوىي≡\u064b\u064c\u064d\u064e\u064f\u0650≈°∙·√ⁿ²■\u00a0'
+        },
+
+        // Aliases of generated encodings.
+        ascii8bit: 'ascii',
+        usascii: 'ascii',
+        ansix34: 'ascii',
+        ansix341968: 'ascii',
+        ansix341986: 'ascii',
+        csascii: 'ascii',
+        cp367: 'ascii',
+        ibm367: 'ascii',
+        isoir6: 'ascii',
+        iso646us: 'ascii',
+        iso646irv: 'ascii',
+        us: 'ascii',
+
+        latin1: 'iso88591',
+        latin2: 'iso88592',
+        latin3: 'iso88593',
+        latin4: 'iso88594',
+        latin5: 'iso88599',
+        latin6: 'iso885910',
+        latin7: 'iso885913',
+        latin8: 'iso885914',
+        latin9: 'iso885915',
+        latin10: 'iso885916',
+
+        csisolatin1: 'iso88591',
+        csisolatin2: 'iso88592',
+        csisolatin3: 'iso88593',
+        csisolatin4: 'iso88594',
+        csisolatincyrillic: 'iso88595',
+        csisolatinarabic: 'iso88596',
+        csisolatingreek: 'iso88597',
+        csisolatinhebrew: 'iso88598',
+        csisolatin5: 'iso88599',
+        csisolatin6: 'iso885910',
+
+        l1: 'iso88591',
+        l2: 'iso88592',
+        l3: 'iso88593',
+        l4: 'iso88594',
+        l5: 'iso88599',
+        l6: 'iso885910',
+        l7: 'iso885913',
+        l8: 'iso885914',
+        l9: 'iso885915',
+        l10: 'iso885916',
+
+        isoir14: 'iso646jp',
+        isoir57: 'iso646cn',
+        isoir100: 'iso88591',
+        isoir101: 'iso88592',
+        isoir109: 'iso88593',
+        isoir110: 'iso88594',
+        isoir144: 'iso88595',
+        isoir127: 'iso88596',
+        isoir126: 'iso88597',
+        isoir138: 'iso88598',
+        isoir148: 'iso88599',
+        isoir157: 'iso885910',
+        isoir166: 'tis620',
+        isoir179: 'iso885913',
+        isoir199: 'iso885914',
+        isoir203: 'iso885915',
+        isoir226: 'iso885916',
+
+        cp819: 'iso88591',
+        ibm819: 'iso88591',
+
+        cyrillic: 'iso88595',
+
+        arabic: 'iso88596',
+        arabic8: 'iso88596',
+        ecma114: 'iso88596',
+        asmo708: 'iso88596',
+
+        greek: 'iso88597',
+        greek8: 'iso88597',
+        ecma118: 'iso88597',
+        elot928: 'iso88597',
+
+        hebrew: 'iso88598',
+        hebrew8: 'iso88598',
+
+        turkish: 'iso88599',
+        turkish8: 'iso88599',
+
+        thai: 'iso885911',
+        thai8: 'iso885911',
+
+        celtic: 'iso885914',
+        celtic8: 'iso885914',
+        isoceltic: 'iso885914',
+
+        tis6200: 'tis620',
+        tis62025291: 'tis620',
+        tis62025330: 'tis620',
+
+        10000: 'macroman',
+        10006: 'macgreek',
+        10007: 'maccyrillic',
+        10079: 'maciceland',
+        10081: 'macturkish',
+
+        cspc8codepage437: 'cp437',
+        cspc775baltic: 'cp775',
+        cspc850multilingual: 'cp850',
+        cspcp852: 'cp852',
+        cspc862latinhebrew: 'cp862',
+        cpgr: 'cp869',
+
+        msee: 'cp1250',
+        mscyrl: 'cp1251',
+        msansi: 'cp1252',
+        msgreek: 'cp1253',
+        msturk: 'cp1254',
+        mshebr: 'cp1255',
+        msarab: 'cp1256',
+        winbaltrim: 'cp1257',
+
+        cp20866: 'koi8r',
+        20866: 'koi8r',
+        ibm878: 'koi8r',
+        cskoi8r: 'koi8r',
+
+        cp21866: 'koi8u',
+        21866: 'koi8u',
+        ibm1168: 'koi8u',
+
+        strk10482002: 'rk1048',
+
+        tcvn5712: 'tcvn',
+        tcvn57121: 'tcvn',
+
+        gb198880: 'iso646cn',
+        cn: 'iso646cn',
+
+        csiso14jisc6220ro: 'iso646jp',
+        jisc62201969ro: 'iso646jp',
+        jp: 'iso646jp',
+
+        cshproman8: 'hproman8',
+        r8: 'hproman8',
+        roman8: 'hproman8',
+        xroman8: 'hproman8',
+        ibm1051: 'hproman8',
+
+        mac: 'macintosh',
+        csmacintosh: 'macintosh'
+      }
+      /***/ },
+
+    /***/ 3950:
+    /***/ (__unused_webpack_module, exports, __nccwpck_require__) => {
+      'use strict'
+
+      const Buffer = (__nccwpck_require__(8343).Buffer)
+
+      // Note: UTF16-LE (or UCS2) codec is Node.js native. See encodings/internal.js
+
+      // == UTF16-BE codec. ==========================================================
+
+      exports.utf16be = Utf16BECodec
+      function Utf16BECodec () {
+      }
+
+      Utf16BECodec.prototype.encoder = Utf16BEEncoder
+      Utf16BECodec.prototype.decoder = Utf16BEDecoder
+      Utf16BECodec.prototype.bomAware = true
+
+      // -- Encoding
+
+      function Utf16BEEncoder () {
+      }
+
+      Utf16BEEncoder.prototype.write = function (str) {
+        const buf = Buffer.from(str, 'ucs2')
+        for (let i = 0; i < buf.length; i += 2) {
+          const tmp = buf[i]; buf[i] = buf[i + 1]; buf[i + 1] = tmp
+        }
+        return buf
+      }
+
+      Utf16BEEncoder.prototype.end = function () {
+      }
+
+      // -- Decoding
+
+      function Utf16BEDecoder () {
+        this.overflowByte = -1
+      }
+
+      Utf16BEDecoder.prototype.write = function (buf) {
+        if (buf.length == 0) { return '' }
+
+        const buf2 = Buffer.alloc(buf.length + 1)
+        let i = 0; let j = 0
+
+        if (this.overflowByte !== -1) {
+          buf2[0] = buf[0]
+          buf2[1] = this.overflowByte
+          i = 1; j = 2
+        }
+
+        for (; i < buf.length - 1; i += 2, j += 2) {
+          buf2[j] = buf[i + 1]
+          buf2[j + 1] = buf[i]
+        }
+
+        this.overflowByte = (i == buf.length - 1) ? buf[buf.length - 1] : -1
+
+        return buf2.slice(0, j).toString('ucs2')
+      }
+
+      Utf16BEDecoder.prototype.end = function () {
+        this.overflowByte = -1
+      }
+
+      // == UTF-16 codec =============================================================
+      // Decoder chooses automatically from UTF-16LE and UTF-16BE using BOM and space-based heuristic.
+      // Defaults to UTF-16LE, as it's prevalent and default in Node.
+      // http://en.wikipedia.org/wiki/UTF-16 and http://encoding.spec.whatwg.org/#utf-16le
+      // Decoder default can be changed: iconv.decode(buf, 'utf16', {defaultEncoding: 'utf-16be'});
+
+      // Encoder uses UTF-16LE and prepends BOM (which can be overridden with addBOM: false).
+
+      exports.utf16 = Utf16Codec
+      function Utf16Codec (codecOptions, iconv) {
+        this.iconv = iconv
+      }
+
+      Utf16Codec.prototype.encoder = Utf16Encoder
+      Utf16Codec.prototype.decoder = Utf16Decoder
+
+      // -- Encoding (pass-through)
+
+      function Utf16Encoder (options, codec) {
+        options = options || {}
+        if (options.addBOM === undefined) { options.addBOM = true }
+        this.encoder = codec.iconv.getEncoder('utf-16le', options)
+      }
+
+      Utf16Encoder.prototype.write = function (str) {
+        return this.encoder.write(str)
+      }
+
+      Utf16Encoder.prototype.end = function () {
+        return this.encoder.end()
+      }
+
+      // -- Decoding
+
+      function Utf16Decoder (options, codec) {
+        this.decoder = null
+        this.initialBufs = []
+        this.initialBufsLen = 0
+
+        this.options = options || {}
+        this.iconv = codec.iconv
+      }
+
+      Utf16Decoder.prototype.write = function (buf) {
+        if (!this.decoder) {
+        // Codec is not chosen yet. Accumulate initial bytes.
+          this.initialBufs.push(buf)
+          this.initialBufsLen += buf.length
+
+          if (this.initialBufsLen < 16) // We need more bytes to use space heuristic (see below)
+          { return '' }
+
+          // We have enough bytes -> detect endianness.
+          const encoding = detectEncoding(this.initialBufs, this.options.defaultEncoding)
+          this.decoder = this.iconv.getDecoder(encoding, this.options)
+
+          let resStr = ''
+          for (let i = 0; i < this.initialBufs.length; i++) { resStr += this.decoder.write(this.initialBufs[i]) }
+
+          this.initialBufs.length = this.initialBufsLen = 0
+          return resStr
+        }
+
+        return this.decoder.write(buf)
+      }
+
+      Utf16Decoder.prototype.end = function () {
+        if (!this.decoder) {
+          const encoding = detectEncoding(this.initialBufs, this.options.defaultEncoding)
+          this.decoder = this.iconv.getDecoder(encoding, this.options)
+
+          let resStr = ''
+          for (let i = 0; i < this.initialBufs.length; i++) { resStr += this.decoder.write(this.initialBufs[i]) }
+
+          const trail = this.decoder.end()
+          if (trail) { resStr += trail }
+
+          this.initialBufs.length = this.initialBufsLen = 0
+          return resStr
+        }
+        return this.decoder.end()
+      }
+
+      function detectEncoding (bufs, defaultEncoding) {
+        const b = []
+        let charsProcessed = 0
+        let asciiCharsLE = 0; let asciiCharsBE = 0 // Number of ASCII chars when decoded as LE or BE.
+
+        outer_loop:
+        for (let i = 0; i < bufs.length; i++) {
+          const buf = bufs[i]
+          for (let j = 0; j < buf.length; j++) {
+            b.push(buf[j])
+            if (b.length === 2) {
+              if (charsProcessed === 0) {
+                // Check BOM first.
+                if (b[0] === 0xFF && b[1] === 0xFE) return 'utf-16le'
+                if (b[0] === 0xFE && b[1] === 0xFF) return 'utf-16be'
+              }
+
+              if (b[0] === 0 && b[1] !== 0) asciiCharsBE++
+              if (b[0] !== 0 && b[1] === 0) asciiCharsLE++
+
+              b.length = 0
+              charsProcessed++
+
+              if (charsProcessed >= 100) {
+                break outer_loop
+              }
+            }
+          }
+        }
+
+        // Make decisions.
+        // Most of the time, the content has ASCII chars (U+00**), but the opposite (U+**00) is uncommon.
+        // So, we count ASCII as if it was LE or BE, and decide from that.
+        if (asciiCharsBE > asciiCharsLE) return 'utf-16be'
+        if (asciiCharsBE < asciiCharsLE) return 'utf-16le'
+
+        // Couldn't decide (likely all zeros or not enough data).
+        return defaultEncoding || 'utf-16le'
+      }
+      /***/ },
+
+    /***/ 6541:
+    /***/ (__unused_webpack_module, exports, __nccwpck_require__) => {
+      'use strict'
+
+      const Buffer = (__nccwpck_require__(8343).Buffer)
+
+      // == UTF32-LE/BE codec. ==========================================================
+
+      exports._utf32 = Utf32Codec
+
+      function Utf32Codec (codecOptions, iconv) {
+        this.iconv = iconv
+        this.bomAware = true
+        this.isLE = codecOptions.isLE
+      }
+
+      exports.utf32le = { type: '_utf32', isLE: true }
+      exports.utf32be = { type: '_utf32', isLE: false }
+
+      // Aliases
+      exports.ucs4le = 'utf32le'
+      exports.ucs4be = 'utf32be'
+
+      Utf32Codec.prototype.encoder = Utf32Encoder
+      Utf32Codec.prototype.decoder = Utf32Decoder
+
+      // -- Encoding
+
+      function Utf32Encoder (options, codec) {
+        this.isLE = codec.isLE
+        this.highSurrogate = 0
+      }
+
+      Utf32Encoder.prototype.write = function (str) {
+        const src = Buffer.from(str, 'ucs2')
+        let dst = Buffer.alloc(src.length * 2)
+        const write32 = this.isLE ? dst.writeUInt32LE : dst.writeUInt32BE
+        let offset = 0
+
+        for (let i = 0; i < src.length; i += 2) {
+          const code = src.readUInt16LE(i)
+          const isHighSurrogate = (code >= 0xD800 && code < 0xDC00)
+          const isLowSurrogate = (code >= 0xDC00 && code < 0xE000)
+
+          if (this.highSurrogate) {
+            if (isHighSurrogate || !isLowSurrogate) {
+              // There shouldn't be two high surrogates in a row, nor a high surrogate which isn't followed by a low
+              // surrogate. If this happens, keep the pending high surrogate as a stand-alone semi-invalid character
+              // (technically wrong, but expected by some applications, like Windows file names).
+              write32.call(dst, this.highSurrogate, offset)
+              offset += 4
+            } else {
+              // Create 32-bit value from high and low surrogates;
+              const codepoint = (((this.highSurrogate - 0xD800) << 10) | (code - 0xDC00)) + 0x10000
+
+              write32.call(dst, codepoint, offset)
+              offset += 4
+              this.highSurrogate = 0
+
+              continue
+            }
+          }
+
+          if (isHighSurrogate) { this.highSurrogate = code } else {
+            // Even if the current character is a low surrogate, with no previous high surrogate, we'll
+            // encode it as a semi-invalid stand-alone character for the same reasons expressed above for
+            // unpaired high surrogates.
+            write32.call(dst, code, offset)
+            offset += 4
+            this.highSurrogate = 0
+          }
+        }
+
+        if (offset < dst.length) { dst = dst.slice(0, offset) }
+
+        return dst
+      }
+
+      Utf32Encoder.prototype.end = function () {
+        // Treat any leftover high surrogate as a semi-valid independent character.
+        if (!this.highSurrogate) { return }
+
+        const buf = Buffer.alloc(4)
+
+        if (this.isLE) { buf.writeUInt32LE(this.highSurrogate, 0) } else { buf.writeUInt32BE(this.highSurrogate, 0) }
+
+        this.highSurrogate = 0
+
+        return buf
+      }
+
+      // -- Decoding
+
+      function Utf32Decoder (options, codec) {
+        this.isLE = codec.isLE
+        this.badChar = codec.iconv.defaultCharUnicode.charCodeAt(0)
+        this.overflow = []
+      }
+
+      Utf32Decoder.prototype.write = function (src) {
+        if (src.length === 0) { return '' }
+
+        let i = 0
+        let codepoint = 0
+        const dst = Buffer.alloc(src.length + 4)
+        let offset = 0
+        const isLE = this.isLE
+        const overflow = this.overflow
+        const badChar = this.badChar
+
+        if (overflow.length > 0) {
+          for (; i < src.length && overflow.length < 4; i++) { overflow.push(src[i]) }
+
+          if (overflow.length === 4) {
+            // NOTE: codepoint is a signed int32 and can be negative.
+            // NOTE: We copied this block from below to help V8 optimize it (it works with array, not buffer).
+            if (isLE) {
+              codepoint = overflow[i] | (overflow[i + 1] << 8) | (overflow[i + 2] << 16) | (overflow[i + 3] << 24)
+            } else {
+              codepoint = overflow[i + 3] | (overflow[i + 2] << 8) | (overflow[i + 1] << 16) | (overflow[i] << 24)
+            }
+            overflow.length = 0
+
+            offset = _writeCodepoint(dst, offset, codepoint, badChar)
+          }
+        }
+
+        // Main loop. Should be as optimized as possible.
+        for (; i < src.length - 3; i += 4) {
+        // NOTE: codepoint is a signed int32 and can be negative.
+          if (isLE) {
+            codepoint = src[i] | (src[i + 1] << 8) | (src[i + 2] << 16) | (src[i + 3] << 24)
+          } else {
+            codepoint = src[i + 3] | (src[i + 2] << 8) | (src[i + 1] << 16) | (src[i] << 24)
+          }
+          offset = _writeCodepoint(dst, offset, codepoint, badChar)
+        }
+
+        // Keep overflowing bytes.
+        for (; i < src.length; i++) {
+          overflow.push(src[i])
+        }
+
+        return dst.slice(0, offset).toString('ucs2')
+      }
+
+      function _writeCodepoint (dst, offset, codepoint, badChar) {
+        // NOTE: codepoint is signed int32 and can be negative. We keep it that way to help V8 with optimizations.
+        if (codepoint < 0 || codepoint > 0x10FFFF) {
+        // Not a valid Unicode codepoint
+          codepoint = badChar
+        }
+
+        // Ephemeral Planes: Write high surrogate.
+        if (codepoint >= 0x10000) {
+          codepoint -= 0x10000
+
+          const high = 0xD800 | (codepoint >> 10)
+          dst[offset++] = high & 0xff
+          dst[offset++] = high >> 8
+
+          // Low surrogate is written below.
+          var codepoint = 0xDC00 | (codepoint & 0x3FF)
+        }
+
+        // Write BMP char or low surrogate.
+        dst[offset++] = codepoint & 0xff
+        dst[offset++] = codepoint >> 8
+
+        return offset
+      };
+
+      Utf32Decoder.prototype.end = function () {
+        this.overflow.length = 0
+      }
+
+      // == UTF-32 Auto codec =============================================================
+      // Decoder chooses automatically from UTF-32LE and UTF-32BE using BOM and space-based heuristic.
+      // Defaults to UTF-32LE. http://en.wikipedia.org/wiki/UTF-32
+      // Encoder/decoder default can be changed: iconv.decode(buf, 'utf32', {defaultEncoding: 'utf-32be'});
+
+      // Encoder prepends BOM (which can be overridden with (addBOM: false}).
+
+      exports.utf32 = Utf32AutoCodec
+      exports.ucs4 = 'utf32'
+
+      function Utf32AutoCodec (options, iconv) {
+        this.iconv = iconv
+      }
+
+      Utf32AutoCodec.prototype.encoder = Utf32AutoEncoder
+      Utf32AutoCodec.prototype.decoder = Utf32AutoDecoder
+
+      // -- Encoding
+
+      function Utf32AutoEncoder (options, codec) {
+        options = options || {}
+
+        if (options.addBOM === undefined) { options.addBOM = true }
+
+        this.encoder = codec.iconv.getEncoder(options.defaultEncoding || 'utf-32le', options)
+      }
+
+      Utf32AutoEncoder.prototype.write = function (str) {
+        return this.encoder.write(str)
+      }
+
+      Utf32AutoEncoder.prototype.end = function () {
+        return this.encoder.end()
+      }
+
+      // -- Decoding
+
+      function Utf32AutoDecoder (options, codec) {
+        this.decoder = null
+        this.initialBufs = []
+        this.initialBufsLen = 0
+        this.options = options || {}
+        this.iconv = codec.iconv
+      }
+
+      Utf32AutoDecoder.prototype.write = function (buf) {
+        if (!this.decoder) {
+        // Codec is not chosen yet. Accumulate initial bytes.
+          this.initialBufs.push(buf)
+          this.initialBufsLen += buf.length
+
+          if (this.initialBufsLen < 32) // We need more bytes to use space heuristic (see below)
+          { return '' }
+
+          // We have enough bytes -> detect endianness.
+          const encoding = detectEncoding(this.initialBufs, this.options.defaultEncoding)
+          this.decoder = this.iconv.getDecoder(encoding, this.options)
+
+          let resStr = ''
+          for (let i = 0; i < this.initialBufs.length; i++) { resStr += this.decoder.write(this.initialBufs[i]) }
+
+          this.initialBufs.length = this.initialBufsLen = 0
+          return resStr
+        }
+
+        return this.decoder.write(buf)
+      }
+
+      Utf32AutoDecoder.prototype.end = function () {
+        if (!this.decoder) {
+          const encoding = detectEncoding(this.initialBufs, this.options.defaultEncoding)
+          this.decoder = this.iconv.getDecoder(encoding, this.options)
+
 
 
 /***/ }),
@@ -9253,63 +11861,67 @@ const github = __nccwpck_require__(3134)
 /**
  * @description Entrypoint
  */
-async function exec () {
-  try {
-    const prefixes = core.getInput('prefixes')
-    const refBranch = core.getInput('refBranch')
-    const githubToken = core.getInput('GITHUB_TOKEN')
-    const mergeToken = core.getInput('MERGE_TOKEN')
+    async function exec () {
+      try {
+        const prefixes = core.getInput('prefixes')
+        const refBranch = core.getInput('refBranch')
+        const githubToken = core.getInput('GITHUB_TOKEN')
+        const mergeToken = core.getInput('MERGE_TOKEN')
 
-    const octokit = github.getOctokit(githubToken)
+        const octokit = github.getOctokit(githubToken)
 
-    let mergeOctokit
-    if (mergeToken) {
-      console.log('Got a merge token. Creating seperate octokit object.')
-      mergeOctokit = github.getOctokit(mergeToken)
-    } else {
-      mergeOctokit = octokit
-    }
+        let mergeOctokit
+        if (mergeToken) {
+          console.log('Got a merge token. Creating seperate octokit object.')
+          mergeOctokit = github.getOctokit(mergeToken)
+        } else {
+          mergeOctokit = octokit
+        }
 
-    const context = github.context
-    const owner = github.context.repo.owner
-    const repo = github.context.repo.repo
-    const pullNumber = context.payload.pull_request.number
-    const headBranch = context.payload.pull_request.head.ref
-    const baseBranch = context.payload.pull_request.base.ref
-    const actor = context.payload.actor
+        const context = github.context
+        const owner = github.context.repo.owner
+        const repo = github.context.repo.repo
+        const pullNumber = context.payload.pull_request.number
+        const headBranch = context.payload.pull_request.head.ref
+        const baseBranch = context.payload.pull_request.base.ref
+        const actor = context.actor
 
-    const prefixArray = prefixes.split(',')
+        const prefixArray = prefixes.split(',')
 
-    console.log('owner: ' + owner)
-    console.log('repo: ' + repo)
-    console.log('actor: ' + actor)
-    console.log('prefixes: ' + prefixes)
-    console.log('prefixArray: ', prefixArray)
-    console.log('refBranch: ' + refBranch)
-    console.log('pullNumber: ' + pullNumber)
-    console.log('headBranch: ' + headBranch)
-    console.log('baseBranch: ' + baseBranch)
+        console.log('owner: ' + owner)
+        console.log('repo: ' + repo)
+        console.log('actor: ' + actor)
+        console.log('prefixes: ' + prefixes)
+        console.log('prefixArray: ', prefixArray)
+        console.log('refBranch: ' + refBranch)
+        console.log('pullNumber: ' + pullNumber)
+        console.log('headBranch: ' + headBranch)
+        console.log('baseBranch: ' + baseBranch)
 
-    console.log(context)
+        console.log(context)
 
-    const repository = {
-      owner,
-      repo
-    }
-    if (context.payload.pull_request.merged) {
-      cascadingBranchMerge(
-        prefixArray,
-        refBranch,
-        headBranch,
-        baseBranch,
-        repository,
-        octokit,
-        mergeOctokit,
-        pullNumber,
-        actor
-      )
-    } else {
-      console.log('PR was not merged. Skipping cascade.')
+        const repository = {
+          owner,
+          repo
+        }
+        if (context.payload.pull_request.merged) {
+          cascadingBranchMerge(
+            prefixArray,
+            refBranch,
+            headBranch,
+            baseBranch,
+            repository,
+            octokit,
+            mergeOctokit,
+            pullNumber,
+            actor
+          )
+        } else {
+          console.log('PR was not merged. Skipping cascade.')
+        }
+      } catch (e) {
+        console.log(e)
+      }
     }
   } catch (e) {
     console.log(e)
