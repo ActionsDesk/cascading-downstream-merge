@@ -28,9 +28,9 @@ To explain the **Cascading Auto Merge** functionality a little bit more detailed
     |release/2.0.1-alpha|
     |release/2.0.1-beta|
     |release/2.0.1-beta.1|
-    
+
 ---
-    
+
 - Now a developer makes a change to the *release/1.1* branch and issues a PR against the *development* branch, requesting at least one approval.
 
 - With the **Cascading Auto Merge** functionality support the following should happen.
@@ -39,11 +39,11 @@ To explain the **Cascading Auto Merge** functionality a little bit more detailed
 
     This sample output should demonstrate the expected GitHub behaviour
     ![Screen Shot 2020-01-27 at 6 35 40 PM](https://user-images.githubusercontent.com/863198/73391036-3be32380-42a5-11ea-8e43-f45d3ac596ec.png)
-    
+
 ---
 
- - In the original GitHub PR you will see comments for each subsequent cascading merge PR, including links to these PRs, providing a full audit trail of automated merges.
- 
+- In the original GitHub PR you will see comments for each subsequent cascading merge PR, including links to these PRs, providing a full audit trail of automated merges.
+
     Below is a sample output of a test run.
 
     ![Screen Shot 2020-02-06 at 12 10 10 AM](https://user-images.githubusercontent.com/863198/74079847-f3e1a080-4a0a-11ea-817d-8d27be36dcb7.png)
