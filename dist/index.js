@@ -8793,13 +8793,13 @@ async function cascadingBranchMerge (
           console.info('Got a 422 error', error)
           if (errorResponseData.errors[0].message.startsWith('No commits between')) {
             await addCommentToOriginalPullRequest(
-              `Skipping creation of cascading PR to merge ${mergeList[i]} into ${mergeList[i + 1]}. 
+              `Skipping creation of cascading PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__"
               There are no commits between these branches. Continuing auto-merge action...`
             )
             continue
           } else if (errorResponseData.errors[0].message.startsWith('A pull request already exists')) {
             await addCommentToOriginalPullRequest(
-              `:heavy_exclamation_mark: Tried to create a cascading PR to merge ${mergeList[i]} into ${mergeList[i + 1]}, 
+              `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__"
               but there is already a pull request open. Can't continue auto-merge action.`
             )
             success = false
@@ -8808,12 +8808,12 @@ async function cascadingBranchMerge (
         } else {
           const issueNumber = await createIssue(
             ':heavy_exclamation_mark: Problem with cascading Auto-Merge',
-            `Unknown issue when creating a PR to merge ${mergeList[i]} into ${mergeList[i + 1]}. 
+            `Unknown issue when creating a PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__"
             Please try to resolve the issue. **Cascading Auto-Merge has been stopped!** 
             error: "${JSON.stringify(errorResponseData)}"`
           ).data.number
           await addCommentToOriginalPullRequest(
-            `:heavy_exclamation_mark: Tried to create a cascading PR to merge ${mergeList[i]} into ${mergeList[i + 1]} but encountered an issue: "${JSON.stringify(errorResponseData)}". 
+            `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__" but encountered an issue: "${JSON.stringify(errorResponseData)}". 
             Created an issue #${issueNumber}. Can't continue auto-merge action.`
           )
           // stop the cascading auto-merge
@@ -8824,7 +8824,7 @@ async function cascadingBranchMerge (
       }
 
       await addCommentToOriginalPullRequest(
-        `Created cascading Auto-Merge PR #${res.data.number} to merge ${mergeList[i]} into ${mergeList[i + 1]}.`
+        `Created cascading Auto-Merge PR #${res.data.number} to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__"`
       )
 
       // -----------------------------------------------------------------------------------------------------------------
@@ -8860,7 +8860,7 @@ async function cascadingBranchMerge (
             ${JSON.stringify(errorResponseData)}`
           )
           await addCommentToOriginalPullRequest(
-            `:heavy_exclamation_mark: Tried to create a cascading PR to merge ${mergeList[i]} into ${mergeList[i + 1]} but encountered an issue: "${JSON.stringify(errorResponseData)}". 
+            `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__" but encountered an issue: "${JSON.stringify(errorResponseData)}". 
             Created an issue #${issueNumber}. Can't continue auto-merge action.`
           )
           success = false
@@ -8888,14 +8888,14 @@ async function cascadingBranchMerge (
         console.info('Got a 422 error', error)
         if (errorResponseData.errors[0].message.startsWith('No commits between')) {
           await addCommentToOriginalPullRequest(
-            `Skipping creation of cascading PR to merge ${headBranch} into ${refBranch}. 
+            `Skipping creation of cascading PR to merge "__${headBranch}__" into "__${refBranch}__"
             There are no commits between these branches. Continuing auto-merge action...`
           )
           await addCommentToOriginalPullRequest(':white_check_mark: Auto-merge was successful.')
           return // success
         } else if (errorResponseData.errors[0].message.startsWith('A pull request already exists')) {
           await addCommentToOriginalPullRequest(
-            `:heavy_exclamation_mark: Tried to create a cascading PR to merge ${headBranch} into ${refBranch}, 
+            `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${headBranch}__" into "__${refBranch}__"
             but there is already a pull request open. Can't continue auto-merge action.`
           )
           success = false
@@ -8904,12 +8904,12 @@ async function cascadingBranchMerge (
         } else {
           const issueNumber = await createIssue(
             ':heavy_exclamation_mark: Problem with cascading Auto-Merge',
-            `Unknown issue when creating a PR to merge ${headBranch} into refBranch ${refBranch}. 
+            `Unknown issue when creating a PR to merge "__${headBranch}__" into refBranch "__${refBranch}__" 
             Please try to resolve the issue. **Cascading Auto-Merge has been stopped!** 
             error: "${JSON.stringify(errorResponseData)}"`
           ).data.number
           await addCommentToOriginalPullRequest(
-            `:heavy_exclamation_mark: Tried to create a cascading PR to merge ${headBranch} into refBranch ${refBranch} but encountered an issue: "${JSON.stringify(errorResponseData)}". 
+            `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${headBranch}__" into refBranch "__${refBranch}__" but encountered an issue: "${JSON.stringify(errorResponseData)}". 
             Created an issue #${issueNumber}. Can't continue auto-merge action.`
           )
           // stop the cascading auto-merge
@@ -8922,7 +8922,7 @@ async function cascadingBranchMerge (
     }
     try {
       await addCommentToOriginalPullRequest(
-        `Created cascading Auto-Merge PR #${ref.data.number} to merge ${headBranch} into the refBranch ${refBranch}.`
+        `Created cascading Auto-Merge PR #${ref.data.number} to merge "__${headBranch}__" into the refBranch "__${refBranch}__"`
       )
 
       // MERGE the PR
@@ -8952,7 +8952,7 @@ async function cascadingBranchMerge (
           ${JSON.stringify(errorResponseData)}`
         )
         await addCommentToOriginalPullRequest(
-          `:heavy_exclamation_mark: Tried to create a cascading PR to merge ${headBranch} into ${refBranch} but encountered an issue: "${JSON.stringify(errorResponseData)}". 
+          `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${headBranch}__" into "__${refBranch}__" but encountered an issue: "${JSON.stringify(errorResponseData)}". 
           Created an issue #${issueNumber}. Can't continue auto-merge action.`
         )
         success = false
