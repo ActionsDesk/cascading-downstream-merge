@@ -1,4 +1,4 @@
-# Installation
+# Actions Configuration
 
 ## Enable Github Actions to generate Pull Requests
 
@@ -34,7 +34,7 @@ permissions:
 jobs:
   Merge:
 
-    if: github.event.pull_request.merged == true && !startsWith( github.actor, '<<<CUSTOM-GITHUB-APP>>>' )
+    if: github.event.pull_request.merged == true && !startsWith( github.actor, '<<<CUSTOM-GITHUB-APP-NAME>>>' )
 
     runs-on: ubuntu-latest
 
