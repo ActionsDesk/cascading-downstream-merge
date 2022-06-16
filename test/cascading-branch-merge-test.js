@@ -23,7 +23,7 @@ github.getOctokit = jest.fn().mockImplementation(() => {
       },
       issues: {
         createComment: jest.fn().mockReturnValue({}),
-        create: jest.fn().mockReturnValue({})
+        create: jest.fn().mockReturnValue({data: { number: 40 }})
       }
     }
   }
@@ -154,7 +154,7 @@ describe('Cascade branch merge test', () => {
         owner: 'ActionsDesk',
         repo: 'hello-world',
         issue_number: 12,
-        body: expect.stringMatching(/.*there are no commits between.*/)
+        body: expect.stringMatching(/.*There are no commits between.*/)
       }
     )
 
@@ -296,7 +296,7 @@ describe('Cascade branch merge test', () => {
         owner: 'ActionsDesk',
         repo: 'hello-world',
         issue_number: 12,
-        body: expect.stringMatching(/.*Some Unhandled Error.*/)
+        body: expect.stringMatching(/.*encountered an issue.*/)
       }
     )
 
@@ -314,8 +314,8 @@ describe('Cascade branch merge test', () => {
         owner: 'ActionsDesk',
         repo: 'hello-world',
         assignees: ['handle'],
-        title: 'Problem with cascading Auto-Merge',
-        body: expect.stringMatching(/.*Some Unhandled Error.*/)
+        title: ':heavy_exclamation_mark: Problem with cascading Auto-Merge',
+        body: expect.stringMatching(/^Unknown issue when creating.*/)
       }
     )
 
@@ -376,7 +376,7 @@ describe('Cascade branch merge test', () => {
         owner: 'ActionsDesk',
         repo: 'hello-world',
         issue_number: 12,
-        body: expect.stringMatching(/.*PR #13 Ran into a merge conflict.*/)
+        body: expect.stringMatching(/.*Could not auto merge PR #13 due to merge conflicts.*/)
       }
     )
 
@@ -385,7 +385,7 @@ describe('Cascade branch merge test', () => {
         owner: 'ActionsDesk',
         repo: 'hello-world',
         issue_number: 12,
-        body: expect.stringMatching(/.*PR #14 Ran into a merge conflict.*/)
+        body: expect.stringMatching(/.*Could not auto merge PR #14 due to merge conflicts.*/)
       }
     )
 
@@ -394,7 +394,7 @@ describe('Cascade branch merge test', () => {
         owner: 'ActionsDesk',
         repo: 'hello-world',
         assignees: ['handle'],
-        title: 'Problem with cascading Auto-Merge. Ran into a merge conflict.',
+        title: ':heavy_exclamation_mark: Problem with cascading Auto-Merge. Ran into a merge conflict.',
         body: expect.stringMatching(/.*PR #13.*/)
       }
     )
@@ -404,7 +404,7 @@ describe('Cascade branch merge test', () => {
         owner: 'ActionsDesk',
         repo: 'hello-world',
         assignees: ['handle'],
-        title: 'Problem with cascading Auto-Merge. Ran into a merge conflict.',
+        title: ':heavy_exclamation_mark: Problem with cascading Auto-Merge. Ran into a merge conflict.',
         body: expect.stringMatching(/.*PR #14.*/)
       }
     )

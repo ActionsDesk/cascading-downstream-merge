@@ -8703,8 +8703,6 @@ function wrappy (fn, cb) {
  *        If we decide to contribute this code back 'upstream',
  *        we can make a decision than on how to structure/refactor the code.
  *
- * TODO: This contains some 'boilerplate' code that can be optimized
- *       possible functions: 'create-PR', 'create-Issue', 'create-Comment', 'merge-PR'
  */
 
 let repository
@@ -8786,47 +8784,52 @@ async function cascadingBranchMerge (
         res = await createPullRequest(
           mergeList[i + 1], 
           mergeList[i], 
-          'Cascading Auto-Merge: merge [' + mergeList[i] + '] into [' + mergeList[i + 1] + ']'
+          `Automatic Merge: ${mergeList[i]} -> ${mergeList[i + 1]}`
         )
       } 
       catch (error) 
       { // could not create the PR
-        console.info("got an ERROR while trying to create a pr:", error)
         const errorResponseData = error.response.data
         if (error.status === 422) // check for Unprocessable Entity (No commits betwee / already PR open)
         {
+          console.info("Got a 422 error", error)
           if ( errorResponseData.errors[0].message.startsWith('No commits between'))
           {
             await addCommentToOriginalPullRequest(
-              `I Tried to create a cascading PR to merge ${mergeList[i]} into ${mergeList[i + 1]} but there are no commits between these branches. No action needed. continueing the cascading merge.`
+              `Skipping creation of cascading PR to merge ${mergeList[i]} into ${mergeList[i + 1]}. 
+              There are no commits between these branches. Continuing auto-merge action...`
             )
             continue
           }
           else if (errorResponseData.errors[0].message.startsWith('A pull request already exists')) 
           {
             await addCommentToOriginalPullRequest(
-              `I Tried to create a cascading PR to merge ${mergeList[i]} into ${mergeList[i + 1]} but there is already a pull request open.`
+              `:heavy_exclamation_mark: Tried to create a cascading PR to merge ${mergeList[i]} into ${mergeList[i + 1]}, 
+              but there is already a pull request open. Can't continue auto-merge action.`
             )
             break
           }
         } 
         else 
         {
+          const issueNumber = await createIssue(
+            ':heavy_exclamation_mark: Problem with cascading Auto-Merge',
+            `Unknown issue when creating a PR to merge ${mergeList[i]} into ${mergeList[i + 1]}. 
+            Please try to resolve the issue. **Cascading Auto-Merge has been stopped!** 
+            error: "${JSON.stringify(errorResponseData)}"`
+          ).data.number
           await addCommentToOriginalPullRequest(
-            `Tried to create a cascading PR but encountered an issue: ${JSON.stringify(errorResponseData)}`
-          )
-          // create an Issue in the Repo. that the cascading failed
-          await createIssue(
-            'Problem with cascading Auto-Merge',
-            `Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** ${JSON.stringify(errorResponseData)}`
+            `:heavy_exclamation_mark: Tried to create a cascading PR to merge ${mergeList[i]} into ${mergeList[i + 1]} but encountered an issue: "${JSON.stringify(errorResponseData)}". 
+            Created an issue #${issueNumber}. Can't continue auto-merge action.`
           )
           // stop the cascading auto-merge
+          console.error(error)
           break
         }
       }
 
-      addCommentToOriginalPullRequest(
-        'Created cascading Auto-Merge pull request #' + res.data.number
+      await addCommentToOriginalPullRequest(
+        `Created cascading Auto-Merge PR #${res.data.number} to merge ${mergeList[i]} into ${mergeList[i + 1]}.`
       )
 
       // -----------------------------------------------------------------------------------------------------------------
@@ -8838,25 +8841,35 @@ async function cascadingBranchMerge (
       } 
       catch (error) 
       {
-        console.info("got an ERROR while trying to create a pr:", error)
         const errorResponseData = error.response.data
 
         if (error.status === 405) 
         {
+          console.info("got a 405 error", error)
           // put a comment in the original PR, noting that the cascading failed
-          await addCommentToOriginalPullRequest('Could not auto merge PR #' + res.data.number + ' Ran into a merge conflict.')
-          await createIssue(
-            'Problem with cascading Auto-Merge. Ran into a merge conflict.', 
-            'Issue with cascading auto-merge, please try to resolve the merge conflict issue. **Cascading Auto-Merge has been stopped!** - PR #' + res.data.number
+          const issueNumber = await createIssue(
+            ':heavy_exclamation_mark: Problem with cascading Auto-Merge. Ran into a merge conflict.', 
+            `Issue with cascading auto-merge, please try to resolve the merge conflicts - PR #${res.data.number}. 
+            **Cascading Auto-Merge has been stopped!**
+            Originating PR #${originalPullRequestNumber}`
+          ).data.number
+          await addCommentToOriginalPullRequest(
+            `:heavy_exclamation_mark: Could not auto merge PR #${res.data.number} due to merge conflicts. 
+            Created an issue #${issueNumber}. Can't continue auto-merge action.`
           )
+         
           // stop the cascading auto-merge
           break
         } 
         else 
         {
+          console.error(error)
           await createIssue(
             'Problem with cascading Auto-Merge.', 
-            `Issue with a PR created by cascading auto-merge, please try to resolve the Issue. **Cascading Auto-Merge has been stopped!** ${JSON.stringify(errorResponseData)}`
+            `Issue with auto-merging a PR. 
+            Please try to resolve the Issue. **Cascading Auto-Merge has been stopped!**
+            Originating PR #${originalPullRequestNumber}
+            ${JSON.stringify(errorResponseData)}`
           )
           break
         }
@@ -8865,42 +8878,53 @@ async function cascadingBranchMerge (
   }
 
   // ---------------------------------------------------------------------------
-  // Create the last commit, into a specified 'refBranch' (default), if provided.
+  // The final merge in the automatic cascade will be to the 'refBranch' if provided.
   // ---------------------------------------------------------------------------
   let ref
-  if (refBranch.length > 0) {
+  if (refBranch) {
     try {
       ref = await createPullRequest(
         refBranch, 
-        headBranch, 
-        'Cascading Auto-Merge: merge [' + headBranch + '] into [' + refBranch + ']'
+        headBranch,
+        `Automatic Merge: ${headBranch} -> ${refBranch}`
       )
 
       await addCommentToOriginalPullRequest(
-        'Created cascading Auto-Merge FINAL pull request #' + ref.data.number
+        `Created cascading Auto-Merge PR #${ref.data.number} to merge ${headBranch} into the refBranch ${refBranch}.`
       )
 
       // MERGE the PR
       await mergePullRequest(ref.data.number)
 
     } catch (error) { // could not create the PR
-      console.info("got an ERROR while trying to create and merge final pr:", error)
+      const errorResponseData = error.response.data
       if (error.status === 405) {
-        // put a comment in the original PR, noting that merging failed
+        console.info("got a 405 error:", error)
+        const issueNumber = await createIssue(
+          ':heavy_exclamation_mark: Problem with cascading Auto-Merge. Ran into a merge conflict.', 
+          `Issue with cascading auto-merge, please try to resolve the merge conflicts - PR #${ref.data.number}. 
+          **Cascading Auto-Merge has been stopped!**
+          Originating PR #${originalPullRequestNumber}`
+        ).data.number
         await addCommentToOriginalPullRequest(
-          'Could not auto merge PR #' + ref.data.number + ' Ran into a merge conflict.'
-        )
-        // create an Issue to notify Repo users
-        await createIssue(
-          'Problem with cascading Auto-Merge. Ran into a merge conflict.',
-          'Issue with cascading auto-merge, please try to resolve the Issue, if necessary. **Cascading Auto-Merge has been stopped!** - PR #' + ref.data.number
+          `:heavy_exclamation_mark: Could not auto merge PR #${ref.data.number} due to merge conflicts. 
+          Created an issue #${issueNumber}. Can't continue auto-merge action.`
         )
 
       } else {
-        // create a comment in the HEAD Branch PR
-        await addCommentToOriginalPullRequest(
-          'Issue with cascading auto-merge, please try to resolve the merge conflict issue. **Cascading Auto-Merge has been stopped!** - PR #' + ref.data.number
+        console.error(error)
+        const issueNumber = await createIssue(
+          'Problem with cascading Auto-Merge.', 
+          `Issue with auto-merging a PR. 
+          Please try to resolve the Issue. **Cascading Auto-Merge has been stopped!**
+          Originating PR #${originalPullRequestNumber}
+          ${JSON.stringify(errorResponseData)}`
         )
+        await addCommentToOriginalPullRequest(
+          `:heavy_exclamation_mark: Tried to create a cascading PR to merge ${headBranch} into ${refBranch} but encountered an issue: "${JSON.stringify(errorResponseData)}". 
+          Created an issue #${issueNumber}. Can't continue auto-merge action.`
+        )
+        
       }
     }
   }
