@@ -110,12 +110,12 @@ async function cascadingBranchMerge (
             break
           }
         } else {
-          const issueNumber = await createIssue(
+          const issueNumber = (await createIssue(
             ':heavy_exclamation_mark: Problem with cascading Auto-Merge',
             `Unknown issue when creating a PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__"
             Please try to resolve the issue. **Cascading Auto-Merge has been stopped!** 
             error: "${JSON.stringify(errorResponseData)}"`
-          ).data.number
+          )).data.number
           await addCommentToOriginalPullRequest(
             `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__" but encountered an issue: "${JSON.stringify(errorResponseData)}". 
             Created an issue #${issueNumber}. Can't continue auto-merge action.`
@@ -142,12 +142,12 @@ async function cascadingBranchMerge (
         if (error.status === 405) {
           console.info('got a 405 error', error)
           // put a comment in the original PR, noting that the cascading failed
-          const issueNumber = await createIssue(
+          const issueNumber = (await createIssue(
             ':heavy_exclamation_mark: Problem with cascading Auto-Merge. Ran into a merge conflict.',
             `Issue with cascading auto-merge, please try to resolve the merge conflicts - PR #${res.data.number}. 
             **Cascading Auto-Merge has been stopped!**
             Originating PR #${originalPullRequestNumber}`
-          ).data.number
+          )).data.number
           await addCommentToOriginalPullRequest(
             `:heavy_exclamation_mark: Could not auto merge PR #${res.data.number} due to merge conflicts. 
             Created an issue #${issueNumber}. Can't continue auto-merge action.`
@@ -156,13 +156,13 @@ async function cascadingBranchMerge (
           break
         } else {
           console.error(error)
-          const issueNumber = await createIssue(
+          const issueNumber =(await createIssue(
             ':heavy_exclamation_mark: Problem with cascading Auto-Merge.',
             `Issue with auto-merging a PR. 
             Please try to resolve the Issue. **Cascading Auto-Merge has been stopped!**
             Originating PR #${originalPullRequestNumber}
             ${JSON.stringify(errorResponseData)}`
-          )
+          )).data.number
           await addCommentToOriginalPullRequest(
             `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__" but encountered an issue: "${JSON.stringify(errorResponseData)}". 
             Created an issue #${issueNumber}. Can't continue auto-merge action.`
@@ -206,12 +206,12 @@ async function cascadingBranchMerge (
           await addCommentToOriginalPullRequest(':bangbang: Auto-merge action did not complete successfully. Please review issues.')
           return
         } else {
-          const issueNumber = await createIssue(
+          const issueNumber = (await createIssue(
             ':heavy_exclamation_mark: Problem with cascading Auto-Merge',
             `Unknown issue when creating a PR to merge "__${headBranch}__" into refBranch "__${refBranch}__" 
             Please try to resolve the issue. **Cascading Auto-Merge has been stopped!** 
             error: "${JSON.stringify(errorResponseData)}"`
-          ).data.number
+          )).data.number
           await addCommentToOriginalPullRequest(
             `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${headBranch}__" into refBranch "__${refBranch}__" but encountered an issue: "${JSON.stringify(errorResponseData)}". 
             Created an issue #${issueNumber}. Can't continue auto-merge action.`
@@ -235,12 +235,12 @@ async function cascadingBranchMerge (
       const errorResponseData = error.response.data
       if (error.status === 405) {
         console.info('got a 405 error:', error)
-        const issueNumber = await createIssue(
+        const issueNumber = (await createIssue(
           ':heavy_exclamation_mark: Problem with cascading Auto-Merge. Ran into a merge conflict.',
           `Issue with cascading auto-merge, please try to resolve the merge conflicts - PR #${ref.data.number}. 
           **Cascading Auto-Merge has been stopped!**
           Originating PR #${originalPullRequestNumber}`
-        ).data.number
+        )).data.number
         await addCommentToOriginalPullRequest(
           `:heavy_exclamation_mark: Could not auto merge PR #${ref.data.number} due to merge conflicts. 
           Created an issue #${issueNumber}. Can't continue auto-merge action.`

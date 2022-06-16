@@ -8806,12 +8806,12 @@ async function cascadingBranchMerge (
             break
           }
         } else {
-          const issueNumber = await createIssue(
+          const issueNumber = (await createIssue(
             ':heavy_exclamation_mark: Problem with cascading Auto-Merge',
             `Unknown issue when creating a PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__"
             Please try to resolve the issue. **Cascading Auto-Merge has been stopped!** 
             error: "${JSON.stringify(errorResponseData)}"`
-          ).data.number
+          )).data.number
           await addCommentToOriginalPullRequest(
             `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__" but encountered an issue: "${JSON.stringify(errorResponseData)}". 
             Created an issue #${issueNumber}. Can't continue auto-merge action.`
@@ -8838,12 +8838,12 @@ async function cascadingBranchMerge (
         if (error.status === 405) {
           console.info('got a 405 error', error)
           // put a comment in the original PR, noting that the cascading failed
-          const issueNumber = await createIssue(
+          const issueNumber = (await createIssue(
             ':heavy_exclamation_mark: Problem with cascading Auto-Merge. Ran into a merge conflict.',
             `Issue with cascading auto-merge, please try to resolve the merge conflicts - PR #${res.data.number}. 
             **Cascading Auto-Merge has been stopped!**
             Originating PR #${originalPullRequestNumber}`
-          ).data.number
+          )).data.number
           await addCommentToOriginalPullRequest(
             `:heavy_exclamation_mark: Could not auto merge PR #${res.data.number} due to merge conflicts. 
             Created an issue #${issueNumber}. Can't continue auto-merge action.`
@@ -8852,13 +8852,13 @@ async function cascadingBranchMerge (
           break
         } else {
           console.error(error)
-          const issueNumber = await createIssue(
+          const issueNumber =(await createIssue(
             ':heavy_exclamation_mark: Problem with cascading Auto-Merge.',
             `Issue with auto-merging a PR. 
             Please try to resolve the Issue. **Cascading Auto-Merge has been stopped!**
             Originating PR #${originalPullRequestNumber}
             ${JSON.stringify(errorResponseData)}`
-          )
+          )).data.number
           await addCommentToOriginalPullRequest(
             `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__" but encountered an issue: "${JSON.stringify(errorResponseData)}". 
             Created an issue #${issueNumber}. Can't continue auto-merge action.`
@@ -8902,12 +8902,12 @@ async function cascadingBranchMerge (
           await addCommentToOriginalPullRequest(':bangbang: Auto-merge action did not complete successfully. Please review issues.')
           return
         } else {
-          const issueNumber = await createIssue(
+          const issueNumber = (await createIssue(
             ':heavy_exclamation_mark: Problem with cascading Auto-Merge',
             `Unknown issue when creating a PR to merge "__${headBranch}__" into refBranch "__${refBranch}__" 
             Please try to resolve the issue. **Cascading Auto-Merge has been stopped!** 
             error: "${JSON.stringify(errorResponseData)}"`
-          ).data.number
+          )).data.number
           await addCommentToOriginalPullRequest(
             `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${headBranch}__" into refBranch "__${refBranch}__" but encountered an issue: "${JSON.stringify(errorResponseData)}". 
             Created an issue #${issueNumber}. Can't continue auto-merge action.`
@@ -8931,12 +8931,12 @@ async function cascadingBranchMerge (
       const errorResponseData = error.response.data
       if (error.status === 405) {
         console.info('got a 405 error:', error)
-        const issueNumber = await createIssue(
+        const issueNumber = (await createIssue(
           ':heavy_exclamation_mark: Problem with cascading Auto-Merge. Ran into a merge conflict.',
           `Issue with cascading auto-merge, please try to resolve the merge conflicts - PR #${ref.data.number}. 
           **Cascading Auto-Merge has been stopped!**
           Originating PR #${originalPullRequestNumber}`
-        ).data.number
+        )).data.number
         await addCommentToOriginalPullRequest(
           `:heavy_exclamation_mark: Could not auto merge PR #${ref.data.number} due to merge conflicts. 
           Created an issue #${issueNumber}. Can't continue auto-merge action.`
@@ -12482,65 +12482,61 @@ const github = __nccwpck_require__(5016)
  * @description Entrypoint
  */
 async function exec () {
-  try {
-    const prefixes = core.getInput('prefixes')
-    const refBranch = core.getInput('refBranch')
-    const githubToken = core.getInput('GITHUB_TOKEN')
-    const mergeToken = core.getInput('MERGE_TOKEN')
+  const prefixes = core.getInput('prefixes')
+  const refBranch = core.getInput('refBranch')
+  const githubToken = core.getInput('GITHUB_TOKEN')
+  const mergeToken = core.getInput('MERGE_TOKEN')
 
-    const octokit = github.getOctokit(githubToken)
+  const octokit = github.getOctokit(githubToken)
 
-    let mergeOctokit
-    if (mergeToken) {
-      console.log('Got a merge token. Creating seperate octokit object.')
-      mergeOctokit = github.getOctokit(mergeToken)
-    } else {
-      mergeOctokit = octokit
-    }
+  let mergeOctokit
+  if (mergeToken) {
+    console.log('Got a merge token. Creating seperate octokit object.')
+    mergeOctokit = github.getOctokit(mergeToken)
+  } else {
+    mergeOctokit = octokit
+  }
 
-    const context = github.context
-    const owner = github.context.repo.owner
-    const repo = github.context.repo.repo
-    const pullNumber = context.payload.pull_request.number
-    const headBranch = context.payload.pull_request.head.ref
-    const baseBranch = context.payload.pull_request.base.ref
-    const actor = context.actor
+  const context = github.context
+  const owner = github.context.repo.owner
+  const repo = github.context.repo.repo
+  const pullNumber = context.payload.pull_request.number
+  const headBranch = context.payload.pull_request.head.ref
+  const baseBranch = context.payload.pull_request.base.ref
+  const actor = context.actor
 
-    const prefixArray = prefixes.split(',')
+  const prefixArray = prefixes.split(',')
 
-    console.log('owner: ' + owner)
-    console.log('repo: ' + repo)
-    console.log('actor: ' + actor)
-    console.log('prefixes: ' + prefixes)
-    console.log('prefixArray: ', prefixArray)
-    console.log('refBranch: ' + refBranch)
-    console.log('pullNumber: ' + pullNumber)
-    console.log('headBranch: ' + headBranch)
-    console.log('baseBranch: ' + baseBranch)
+  console.log('owner: ' + owner)
+  console.log('repo: ' + repo)
+  console.log('actor: ' + actor)
+  console.log('prefixes: ' + prefixes)
+  console.log('prefixArray: ', prefixArray)
+  console.log('refBranch: ' + refBranch)
+  console.log('pullNumber: ' + pullNumber)
+  console.log('headBranch: ' + headBranch)
+  console.log('baseBranch: ' + baseBranch)
 
-    console.log(context)
+  console.log(context)
 
-    const repository = {
-      owner,
-      repo
-    }
-    if (context.payload.pull_request.merged) {
-      cascadingBranchMerge(
-        prefixArray,
-        refBranch,
-        headBranch,
-        baseBranch,
-        repository,
-        octokit,
-        mergeOctokit,
-        pullNumber,
-        actor
-      )
-    } else {
-      console.log('PR was not merged. Skipping cascade.')
-    }
-  } catch (e) {
-    console.log(e)
+  const repository = {
+    owner,
+    repo
+  }
+  if (context.payload.pull_request.merged) {
+    cascadingBranchMerge(
+      prefixArray,
+      refBranch,
+      headBranch,
+      baseBranch,
+      repository,
+      octokit,
+      mergeOctokit,
+      pullNumber,
+      actor
+    )
+  } else {
+    console.log('PR was not merged. Skipping cascade.')
   }
 }
 
