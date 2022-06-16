@@ -92,10 +92,10 @@ describe('Cascade branch merge test', () => {
         owner: 'ActionsDesk',
         repo: 'hello-world',
         issue_number: 12,
-        body: expect.anything()
+        body: ':white_check_mark: Auto-merge was successful.'
       }
     )
-    expect(octokit.rest.issues.createComment).toHaveBeenCalledTimes(3)
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledTimes(4)
 
     expect(octokit.rest.issues.create).not.toHaveBeenCalled()
   })
@@ -145,7 +145,7 @@ describe('Cascade branch merge test', () => {
       'handle'
     )
 
-    expect.assertions(5)
+    expect.assertions(6)
 
     expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(2)
 
@@ -164,6 +164,14 @@ describe('Cascade branch merge test', () => {
         repo: 'hello-world',
         issue_number: 12,
         body: expect.stringMatching(/.*Created cascading Auto-Merge.*/)
+      }
+    )
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
+      {
+        owner: 'ActionsDesk',
+        repo: 'hello-world',
+        issue_number: 12,
+        body: ':white_check_mark: Auto-merge was successful.'
       }
     )
 
@@ -217,7 +225,7 @@ describe('Cascade branch merge test', () => {
       'handle'
     )
 
-    expect.assertions(5)
+    expect.assertions(6)
 
     expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(2)
 
@@ -236,6 +244,15 @@ describe('Cascade branch merge test', () => {
         repo: 'hello-world',
         issue_number: 12,
         body: expect.stringMatching(/.*Created cascading Auto-Merge.*/)
+      }
+    )
+
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
+      {
+        owner: 'ActionsDesk',
+        repo: 'hello-world',
+        issue_number: 12,
+        body: ':bangbang: Auto-merge action did not complete successfully. Please review issues.'
       }
     )
 
@@ -289,7 +306,7 @@ describe('Cascade branch merge test', () => {
       'handle'
     )
 
-    expect.assertions(5)
+    expect.assertions(6)
 
     expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
       {
@@ -319,12 +336,21 @@ describe('Cascade branch merge test', () => {
       }
     )
 
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
+      {
+        owner: 'ActionsDesk',
+        repo: 'hello-world',
+        issue_number: 12,
+        body: ':bangbang: Auto-merge action did not complete successfully. Please review issues.'
+      }
+    )
+
     expect(octokit.rest.issues.create).toHaveBeenCalledTimes(1)
 
     expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(2)
   })
 
-  test('Check merge PR conflict opens issues in both cascade and ref merge', async () => {
+  test('Check merge PR conflict opens issues and adds comment in both cascade and ref merge', async () => {
     const error = new RequestError('Validation Failed', 405, {
       request: {
         method: 'POST',
@@ -369,7 +395,7 @@ describe('Cascade branch merge test', () => {
       'handle'
     )
 
-    expect.assertions(7)
+    expect.assertions(8)
 
     expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
       {
@@ -406,6 +432,15 @@ describe('Cascade branch merge test', () => {
         assignees: ['handle'],
         title: ':heavy_exclamation_mark: Problem with cascading Auto-Merge. Ran into a merge conflict.',
         body: expect.stringMatching(/.*PR #14.*/)
+      }
+    )
+
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
+      {
+        owner: 'ActionsDesk',
+        repo: 'hello-world',
+        issue_number: 12,
+        body: ':bangbang: Auto-merge action did not complete successfully. Please review issues.'
       }
     )
 
@@ -488,4 +523,134 @@ describe('Cascade branch merge test', () => {
       'release/2023_05'
     ])
   })
+  test('Check create PR no commits between ref branch adds comment', async () => {
+    const error = new RequestError('Validation Failed', 422, {
+      request: {
+        method: 'POST',
+        url: 'https://api.github.com/foo',
+        body: {
+          bar: 'baz'
+        },
+        headers: {
+          authorization: 'token secret123'
+        }
+      },
+      response: {
+        status: 422,
+        url: 'https://api.github.com/foo',
+        headers: {
+          'x-github-request-id': '1:2:3:4'
+        },
+        data: {
+          message: 'Validation Failed',
+          errors: [
+            {
+              message: 'No commits between main and main'
+            }
+          ]
+        }
+      }
+    })
+
+    octokit.rest.pulls.create.mockRejectedValueOnce(error)
+
+    await automerge.cascadingBranchMerge(
+      ['release/'],
+      'main',
+      'my-feature',
+      'main',
+      exampleRepo,
+      octokit,
+      octokit,
+      12,
+      'handle'
+    )
+
+    expect.assertions(3)
+
+    expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(1)
+
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
+      {
+        owner: 'ActionsDesk',
+        repo: 'hello-world',
+        issue_number: 12,
+        body: expect.stringMatching(/.*There are no commits between.*/)
+      }
+    )
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
+      {
+        owner: 'ActionsDesk',
+        repo: 'hello-world',
+        issue_number: 12,
+        body: ':white_check_mark: Auto-merge was successful.'
+      }
+    )
+  })
+
+  test('Check create PR pr already open on ref branch adds comment', async () => {
+    const error = new RequestError('Validation Failed', 422, {
+      request: {
+        method: 'POST',
+        url: 'https://api.github.com/foo',
+        body: {
+          bar: 'baz'
+        },
+        headers: {
+          authorization: 'token secret123'
+        }
+      },
+      response: {
+        status: 422,
+        url: 'https://api.github.com/foo',
+        headers: {
+          'x-github-request-id': '1:2:3:4'
+        },
+        data: {
+          message: 'Validation Failed',
+          errors: [
+            {
+              message: 'A pull request already exists'
+            }
+          ]
+        }
+      }
+    })
+
+    octokit.rest.pulls.create.mockRejectedValueOnce(error)
+
+    await automerge.cascadingBranchMerge(
+      ['release/'],
+      'main',
+      'my-feature',
+      'main',
+      exampleRepo,
+      octokit,
+      octokit,
+      12,
+      'handle'
+    )
+
+    expect.assertions(3)
+
+    expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(1)
+
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
+      {
+        owner: 'ActionsDesk',
+        repo: 'hello-world',
+        issue_number: 12,
+        body: expect.stringMatching(/.*already a pull request open.*/)
+      }
+    )
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
+      {
+        owner: 'ActionsDesk',
+        repo: 'hello-world',
+        issue_number: 12,
+        body: ':bangbang: Auto-merge action did not complete successfully. Please review issues.'
+      }
+    )
+  })
 })
+
