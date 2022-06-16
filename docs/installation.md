@@ -13,7 +13,8 @@ The action relies on the branch that opens the PR to remain in place so that the
 
 There are cases where you may want to use a branch protection rule for branch that needs to use the Cascade Merge. In those cases you'll need to use an additional variable named `MERGE_TOKEN` that has elevated access to the repository. The pre-existing `GITHUB_TOKEN` doesn't have enough permissions to bypass the restriction.
 
-Therefore you'll need to create a [Machine User](https://docs.github.com/en/developers/overview/managing-deploy-keys#machine-users) with Admin access or a [custom GitHub App](https://docs.github.com/en/developers/apps/building-github-apps/creating-a-github-app) that only needs read/write for the contents permissions. Than either of these can be used in the selected option to [Allow specified actors to bypass required pull requests](https://github.blog/changelog/2021-11-19-allow-bypassing-required-pull-requests/).
+Therefore you'll need to create a [Machine User](https://docs.github.com/en/developers/overview/managing-deploy-keys#machine-users) with Admin access or a [custom GitHub App](https://docs.github.com/en/developers/apps/building-github-apps/creating-a-github-app) that only needs read/write for the contents permissions.
+Than either of these can be used in the selected option to [Allow specified actors to bypass required pull requests](https://github.blog/changelog/2021-11-19-allow-bypassing-required-pull-requests/).
 
 An example workflow that's using a custom GitHub app is as follows:
 `.github/workflows/branch-automerge.yml`
