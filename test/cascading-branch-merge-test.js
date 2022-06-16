@@ -23,7 +23,7 @@ github.getOctokit = jest.fn().mockImplementation(() => {
       },
       issues: {
         createComment: jest.fn().mockReturnValue({}),
-        create: jest.fn().mockReturnValue({data: { number: 40 }})
+        create: jest.fn().mockReturnValue({ data: { number: 40 } })
       }
     }
   }
@@ -653,4 +653,3 @@ describe('Cascade branch merge test', () => {
     )
   })
 })
-
