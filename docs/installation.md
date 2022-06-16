@@ -1,8 +1,9 @@
 # Actions Configuration
 
-## Enable Github Actions to generate Pull Requests
+## Enable GitHub Actions to generate Pull Requests
 
-In the admin permissions for the organization or repo enable the option to [Allow GitHub Actions to create and approve pull requests](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository#preventing-github-actions-from-creating-or-approving-pull-requests). This is needed in order to allow the Github action to create and open the PRs.
+In the admin permissions for the organization or repository enable the option to [Allow GitHub Actions to create and approve pull requests](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository#preventing-github-actions-from-creating-or-approving-pull-requests).
+This is needed in order to allow the GitHub action to create and open the PRs.
 
 ## Disable the automatic deletion of branches after pull requests are merged
 
@@ -10,11 +11,11 @@ The action relies on the branch that opens the PR to remain in place so that the
 
 ## Leveraging an Additional Merge Token to enable commits to protected branches
 
-There are cases where you may want to use a branch protection rule for branch that needs to use the Cascade Merge. In those cases you'll need to use an additional variable named `MERGE_TOKEN` that has elevated access to the repo. The pre-existing `GITHUB_TOKEN` doesn't have enough permissions to bypass the restriction.
+There are cases where you may want to use a branch protection rule for branch that needs to use the Cascade Merge. In those cases you'll need to use an additional variable named `MERGE_TOKEN` that has elevated access to the repository. The pre-existing `GITHUB_TOKEN` doesn't have enough permissions to bypass the restriction.
 
 Therefore you'll need to create a Machine User with Admin access or a [custom GitHub App](https://docs.github.com/en/developers/apps/building-github-apps/creating-a-github-app) that only needs read/write for the contents permissions. Than either of these can be used in the selected option to [Allow specified actors to bypass required pull requests](https://github.blog/changelog/2021-11-19-allow-bypassing-required-pull-requests/).
 
-An example workflow that's using a custom github app is as follows:
+An example workflow that's using a custom GitHub app is as follows:
 `.github/workflows/branch-automerge.yml`
 
 ```yml
