@@ -8788,8 +8788,7 @@ async function cascadingBranchMerge (
         )
       } catch (error) { // could not create the PR
         const errorResponseData = error.response.data
-        if (error.status === 422) // check for Unprocessable Entity (No commits betwee / already PR open)
-        {
+        if (error.status === 422) {
           console.info('Got a 422 error', error)
           if (errorResponseData.errors[0].message.startsWith('No commits between')) {
             await addCommentToOriginalPullRequest(
@@ -8852,7 +8851,7 @@ async function cascadingBranchMerge (
           break
         } else {
           console.error(error)
-          const issueNumber =(await createIssue(
+          const issueNumber = (await createIssue(
             ':heavy_exclamation_mark: Problem with cascading Auto-Merge.',
             `Issue with auto-merging a PR. 
             Please try to resolve the Issue. **Cascading Auto-Merge has been stopped!**
@@ -8883,8 +8882,7 @@ async function cascadingBranchMerge (
       )
     } catch (error) {
       const errorResponseData = error.response.data
-      if (error.status === 422) // check for Unprocessable Entity (No commits betwee / already PR open)
-      {
+      if (error.status === 422) {
         console.info('Got a 422 error', error)
         if (errorResponseData.errors[0].message.startsWith('No commits between')) {
           await addCommentToOriginalPullRequest(
