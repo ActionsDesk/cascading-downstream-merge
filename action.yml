@@ -5,6 +5,9 @@ inputs:
   GITHUB_TOKEN:
     description: 'GitHub token'
     required: true
+  MERGE_TOKEN:
+    description: 'If needed, pass in a token to be used to merge prs for bypassing branch protections'
+    required: false
   prefixes:
     description: 'List of prefixes to match'
     required: true
