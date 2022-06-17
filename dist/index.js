@@ -9002,6 +9002,18 @@ function createIssue (title, body) {
   })
 }
 
+/**
+* @function getRepoBranchMergeOrder
+* @description
+*  Filter repository branches based on a 'prefix/' and return an ordered list.
+*  This function requires that the branches use semantic versioning
+*  Example:
+*    release/1.0.1-rc.1
+*
+* @param prefix
+* @param headBranch
+* @param branches
+*/
 function getBranchMergeOrder (prefix, headBranch, branches) {
   let branchList = []
   // create a list from the 'branches' array, containing only branch names
@@ -9034,12 +9046,27 @@ function getBranchMergeOrder (prefix, headBranch, branches) {
   return branchList
 }
 
+/**
+* @function swap
+* @description Simple support utility for sorting arrays
+*
+* @param arr
+* @param first_Index
+* @param second_Index
+*/
 function swap (arr, index1, index2) {
   const temp = arr[index1]
   arr[index1] = arr[index2]
   arr[index2] = temp
 }
 
+/**
+* @function isBiggerThan
+* @description Compare the semantic versions v1 > v2 ?
+*
+* @param v1
+* @param v2
+*/
 function isBiggerThan (v1, v2) {
   for (let i = 0; i < 5; i++) {
     if (v1[i] === v2[i]) {
@@ -9052,7 +9079,15 @@ function isBiggerThan (v1, v2) {
   }
   return false
 }
-
+/**
+* @function semanticVersionToArray
+* @description Translate the 'string' type version to a normalized (5 digits) 'number' type array
+*  Example
+*     input: "release/1.1-rc.1"
+*    output: [1,1,0,3,1]
+*
+* @param vStr
+*/
 function semanticVersionToArray (vStr) {
   // creating a 'lookup' table for the semantic versioning, to translate the 'release-name' to a number
   const preRelease = new Map()
