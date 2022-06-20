@@ -49,11 +49,11 @@ async function cascadingBranchMerge (
   mergeOctokit = mergeOctokitObject
 
   const branches = await octokit.paginate(octokit.rest.repos.listBranches, {
-      owner: repository.owner,
-      repo: repository.repo,
-      per_page: 100
-    },
-    response => response.data
+    owner: repository.owner,
+    repo: repository.repo,
+    per_page: 100
+  },
+  response => response.data
   )
   console.log(`Found ${branches.length} branches on repo ${repository.repo}.`)
 

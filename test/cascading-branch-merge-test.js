@@ -67,7 +67,6 @@ describe('Cascade branch merge test', () => {
       },
       expect.anything()
     )
-    
 
     expect(octokit.rest.pulls.create).toHaveBeenCalledWith(
       {
