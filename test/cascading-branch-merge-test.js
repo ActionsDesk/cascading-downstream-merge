@@ -551,7 +551,6 @@ describe('Cascade branch merge test', () => {
         { name: 'release/2022_05.2' },
         { name: 'release/2022_07' },
         { name: 'release/2022_04.4' },
-        { name: 'release/2022_04.3.1' },
         { name: 'release/2022_03.2' },
         { name: 'release/2022_04.3.1' },
         { name: 'release/2022_04.2' },
@@ -563,7 +562,6 @@ describe('Cascade branch merge test', () => {
 
     expect(response).toEqual([
       'release/2022_04.2',
-      'release/2022_04.3.1',
       'release/2022_04.3.1',
       'release/2022_04.4',
       'release/2022_05.2',
