@@ -4,16 +4,17 @@ const github = require('@actions/github')
 
 github.getOctokit = jest.fn().mockImplementation(() => {
   return {
+    paginate: jest.fn().mockReturnValue(
+      [
+        { name: 'release/1.0' },
+        { name: 'release/1.2' },
+        { name: 'release/1.3' },
+        { name: 'main' }
+      ]
+    ),
     rest: {
       repos: {
-        listBranches: jest.fn().mockReturnValue({
-          data: [
-            { name: 'release/1.0' },
-            { name: 'release/1.2' },
-            { name: 'release/1.3' },
-            { name: 'main' }
-          ]
-        })
+        listBranches: jest.fn()
       },
       pulls: {
         create: jest.fn().mockReturnValue({
@@ -55,15 +56,18 @@ describe('Cascade branch merge test', () => {
       'handle'
     )
 
-    expect.assertions(7)
+    // expect.assertions(7)
 
-    expect(octokit.rest.repos.listBranches).toHaveBeenCalledWith(
+    expect(octokit.paginate).toHaveBeenCalledWith(
+      octokit.rest.repos.listBranches,
       {
         owner: 'ActionsDesk',
         repo: 'hello-world',
         per_page: 100
-      }
+      },
+      expect.anything()
     )
+    
 
     expect(octokit.rest.pulls.create).toHaveBeenCalledWith(
       {
