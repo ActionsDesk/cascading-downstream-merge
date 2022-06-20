@@ -541,6 +541,38 @@ describe('Cascade branch merge test', () => {
       'release/2023_05'
     ])
   })
+
+  test('getBranchMergeOrder returns ordered branches with semantic year branch name with underscore and periods', async () => {
+    const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
+    const response = await getBranchMergeOrder(
+      'release/',
+      'release/2022_04.2',
+      [
+        { name: 'release/2022_05.2' },
+        { name: 'release/2022_07' },
+        { name: 'release/2022_04.4' },
+        { name: 'release/2022_04.3.1' },
+        { name: 'release/2022_03.2' },
+        { name: 'release/2022_04.3.1' },
+        { name: 'release/2022_04.2' },
+        { name: 'release/2022_06' },
+        { name: 'release/2022_08' }
+      ]
+    )
+    expect.assertions(1)
+
+    expect(response).toEqual([
+      'release/2022_04.2',
+      'release/2022_04.3.1',
+      'release/2022_04.3.1',
+      'release/2022_04.4',
+      'release/2022_05.2',
+      'release/2022_06',
+      'release/2022_07',
+      'release/2022_08'
+    ])
+  })
+
   test('Check create PR no commits between ref branch adds comment', async () => {
     const error = new RequestError('Validation Failed', 422, {
       request: {
