@@ -345,8 +345,10 @@ function getBranchMergeOrder (prefix, headBranch, branches) {
   }
 
   // return only the versions that are 'younger' than the PR version
-  while (branchList[0] !== headBranch) {
-    branchList.shift()
+  if ( branchList.length !== 0 ) {
+    while (branchList[0] !== headBranch) {
+      branchList.shift()
+    }
   }
 
   return branchList

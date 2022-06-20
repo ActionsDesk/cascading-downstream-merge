@@ -479,6 +479,21 @@ describe('Cascade branch merge test', () => {
     ])
   })
 
+  test('getBranchMergeOrder no prefix matches returns an empty list', async () => {
+    const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
+    const response = await getBranchMergeOrder(
+      'release/',
+      'main',
+      [
+        { name: 'feature/10.2' },
+        { name: 'main' }
+      ]
+    )
+    expect.assertions(1)
+
+    expect(response).toEqual([])
+  })
+
   test('getBranchMergeOrder returns ordered branches with semantic year branch name with underscore', async () => {
     const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
     const response = await getBranchMergeOrder(
