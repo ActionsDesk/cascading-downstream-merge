@@ -527,7 +527,7 @@ describe('Cascade branch merge test', () => {
       'handle'
     )
 
-    // expect.assertions(5)
+    expect.assertions(5)
 
     expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
       {
