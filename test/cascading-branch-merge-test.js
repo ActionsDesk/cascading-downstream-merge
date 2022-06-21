@@ -146,7 +146,6 @@ describe('Cascade branch merge test', () => {
       }
     )
 
-
     expect(octokit.rest.pulls.create).toHaveBeenCalledWith(
       {
         owner: 'ActionsDesk',
@@ -251,7 +250,6 @@ describe('Cascade branch merge test', () => {
 
     expect(octokit.rest.issues.create).not.toHaveBeenCalled()
   })
-
 
   test('Check create PR already exists adds a comment and breaks', async () => {
     const error = new RequestError('Validation Failed', 422, {

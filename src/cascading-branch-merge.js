@@ -7,7 +7,6 @@
  *
  */
 
-
 let success = true
 /**
  * @function cascadingBranchMerge
@@ -36,7 +35,6 @@ async function cascadingBranchMerge (
   pullNumber,
   actor
 ) {
-
   const branches = (await octokit.rest.repos.listBranches({
     owner: repository.owner,
     repo: repository.repo,
@@ -98,7 +96,6 @@ async function cascadingBranchMerge (
               There are no commits between these branches. Continuing auto-merge action...`
             })
             continue
-
           } else if (errorResponseData.errors[0].message.startsWith('A pull request already exists')) {
             await octokit.rest.issues.createComment({
               owner: repository.owner,
@@ -185,7 +182,7 @@ async function cascadingBranchMerge (
               owner: repository.owner,
               repo: repository.repo,
               assignees: [actor],
-              title: ':heavy_exclamation_mark: Problem with cascading Auto-Merge.', 
+              title: ':heavy_exclamation_mark: Problem with cascading Auto-Merge.',
               body: `Issue with auto-merging a PR.
               Please try to resolve the Issue. **Cascading Auto-Merge has been stopped!**
               Originating PR #${pullNumber}
@@ -221,7 +218,6 @@ async function cascadingBranchMerge (
     })
   }
 }
-
 
 /**
 * @function getRepoBranchMergeOrder
