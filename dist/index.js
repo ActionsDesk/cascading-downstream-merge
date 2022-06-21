@@ -8703,11 +8703,7 @@ function wrappy (fn, cb) {
  *
  */
 
-let repository
-let originalPullRequestActor
-let originalPullRequestNumber
-let octokit
-let mergeOctokit
+
 let success = true
 /**
  * @function cascadingBranchMerge
@@ -8719,9 +8715,9 @@ let success = true
  * @param refBranch
  * @param headBranch
  * @param baseBranch
- * @param repositoryObject
- * @param octokitObject
- * @param mergeOctokitObject
+ * @param repository
+ * @param octokit
+ * @param mergeOctokit
  * @param pullNumber
  * @param actor
  */
@@ -8730,17 +8726,12 @@ async function cascadingBranchMerge (
   refBranch,
   headBranch,
   baseBranch,
-  repositoryObject,
-  octokitObject,
-  mergeOctokitObject,
+  repository,
+  octokit,
+  mergeOctokit,
   pullNumber,
   actor
 ) {
-  repository = repositoryObject
-  originalPullRequestActor = actor
-  originalPullRequestNumber = pullNumber
-  octokit = octokitObject
-  mergeOctokit = mergeOctokitObject
 
   const branches = (await octokit.rest.repos.listBranches({
     owner: repository.owner,
@@ -8780,40 +8771,60 @@ async function cascadingBranchMerge (
       // CREATE a PR for the next subsequent merge
       // -----------------------------------------------------------------------------------------------------------------
       try {
-        res = await createPullRequest(
-          mergeList[i + 1],
-          mergeList[i],
-          `Automatic merge from ${mergeList[i]} -> ${mergeList[i + 1]}`
+        res = await octokit.rest.pulls.create(
+          {
+            owner: repository.owner,
+            repo: repository.repo,
+            base: mergeList[i + 1],
+            head: mergeList[i],
+            title: `Automatic merge from ${mergeList[i]} -> ${mergeList[i + 1]}`,
+            body: 'This PR was created automatically by the cascading downstream merge action.'
+          }
         )
       } catch (error) { // could not create the PR
         const errorResponseData = error.response.data
         if (error.status === 422) {
           console.info('Got a 422 error', error)
           if (errorResponseData.errors[0].message.startsWith('No commits between')) {
-            await addCommentToOriginalPullRequest(
-              `Skipping creation of cascading PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__"
+            await octokit.rest.issues.createComment({
+              owner: repository.owner,
+              repo: repository.repo,
+              issue_number: pullNumber,
+              body: `Skipping creation of cascading PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__"
               There are no commits between these branches. Continuing auto-merge action...`
-            )
+            })
             continue
+
           } else if (errorResponseData.errors[0].message.startsWith('A pull request already exists')) {
-            await addCommentToOriginalPullRequest(
-              `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__"
+            await octokit.rest.issues.createComment({
+              owner: repository.owner,
+              repo: repository.repo,
+              issue_number: pullNumber,
+              body: `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__"
               but there is already a pull request open. Can't continue auto-merge action.`
-            )
+            })
             success = false
             break
           }
         } else {
-          const issueNumber = (await createIssue(
-            ':heavy_exclamation_mark: Problem with cascading Auto-Merge',
-            `Unknown issue when creating a PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__"
-            Please try to resolve the issue. **Cascading Auto-Merge has been stopped!**
-            error: "${JSON.stringify(errorResponseData)}"`
+          const issueNumber = (await octokit.rest.issues.create(
+            {
+              owner: repository.owner,
+              repo: repository.repo,
+              assignees: [actor],
+              title: ':heavy_exclamation_mark: Problem with cascading Auto-Merge',
+              body: `Unknown issue when creating a PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__"
+              Please try to resolve the issue. **Cascading Auto-Merge has been stopped!**
+              error: "${JSON.stringify(errorResponseData)}"`
+            }
           )).data.number
-          await addCommentToOriginalPullRequest(
-            `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__" but encountered an issue: "${JSON.stringify(errorResponseData)}".
+          await octokit.rest.issues.createComment({
+            owner: repository.owner,
+            repo: repository.repo,
+            issue_number: pullNumber,
+            body: `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__" but encountered an issue: "${JSON.stringify(errorResponseData)}".
             Created an issue #${issueNumber}. Can't continue auto-merge action.`
-          )
+          })
           // stop the cascading auto-merge
           console.error(error)
           success = false
@@ -8821,185 +8832,92 @@ async function cascadingBranchMerge (
         }
       }
 
-      await addCommentToOriginalPullRequest(
-        `Created cascading Auto-Merge PR #${res.data.number} to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__"`
-      )
+      await octokit.rest.issues.createComment({
+        owner: repository.owner,
+        repo: repository.repo,
+        issue_number: pullNumber,
+        body: `Created cascading Auto-Merge PR #${res.data.number} to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__"`
+      })
 
       // -----------------------------------------------------------------------------------------------------------------
       // MERGE the PR
       // -----------------------------------------------------------------------------------------------------------------
       try {
-        await mergePullRequest(res.data.number)
+        await mergeOctokit.rest.pulls.merge({
+          owner: repository.owner,
+          repo: repository.repo,
+          pull_number: res.data.number
+        })
       } catch (error) {
         const errorResponseData = error.response.data
 
         if (error.status === 405) {
           console.info('got a 405 error', error)
           // put a comment in the original PR, noting that the cascading failed
-          const issueNumber = (await createIssue(
-            ':heavy_exclamation_mark: Problem with cascading Auto-Merge. Ran into a merge conflict.',
-            `Issue with cascading auto-merge, please try to resolve the merge conflicts - PR #${res.data.number}.
-            **Cascading Auto-Merge has been stopped!**
-            Originating PR #${originalPullRequestNumber}`
+          const issueNumber = (await octokit.rest.issues.create(
+            {
+              owner: repository.owner,
+              repo: repository.repo,
+              assignees: [actor],
+              title: ':heavy_exclamation_mark: Problem with cascading Auto-Merge. Ran into a merge conflict.',
+              body: `Issue with cascading auto-merge, please try to resolve the merge conflicts - PR #${res.data.number}.
+              **Cascading Auto-Merge has been stopped!**
+              Originating PR #${pullNumber}`
+            }
           )).data.number
-          await addCommentToOriginalPullRequest(
-            `:heavy_exclamation_mark: Could not auto merge PR #${res.data.number} due to merge conflicts.
+          await octokit.rest.issues.createComment({
+            owner: repository.owner,
+            repo: repository.repo,
+            issue_number: pullNumber,
+            body: `:heavy_exclamation_mark: Could not auto merge PR #${res.data.number} due to merge conflicts.
             Created an issue #${issueNumber}. Can't continue auto-merge action.`
-          )
+          })
           success = false
           break
         } else {
           console.error(error)
-          const issueNumber = (await createIssue(
-            ':heavy_exclamation_mark: Problem with cascading Auto-Merge.',
-            `Issue with auto-merging a PR.
-            Please try to resolve the Issue. **Cascading Auto-Merge has been stopped!**
-            Originating PR #${originalPullRequestNumber}
-            ${JSON.stringify(errorResponseData)}`
+          const issueNumber = (await octokit.rest.issues.create(
+            {
+              owner: repository.owner,
+              repo: repository.repo,
+              assignees: [actor],
+              title: ':heavy_exclamation_mark: Problem with cascading Auto-Merge.', 
+              body: `Issue with auto-merging a PR.
+              Please try to resolve the Issue. **Cascading Auto-Merge has been stopped!**
+              Originating PR #${pullNumber}
+              ${JSON.stringify(errorResponseData)}`
+            }
           )).data.number
-          await addCommentToOriginalPullRequest(
-            `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__" but encountered an issue: "${JSON.stringify(errorResponseData)}".
+          await octokit.rest.issues.createComment({
+            owner: repository.owner,
+            repo: repository.repo,
+            issue_number: pullNumber,
+            body: `:heavy_exclamation_mark: Tried merge PR #${res.data.number} to merge "__${mergeList[i]}__" into "__${mergeList[i + 1]}__" but encountered an issue: "${JSON.stringify(errorResponseData)}".
             Created an issue #${issueNumber}. Can't continue auto-merge action.`
-          )
+          })
           success = false
           break
         }
       }
     }
   }
-
-  // ---------------------------------------------------------------------------
-  // The final merge in the automatic cascade will be to the 'refBranch' if provided.
-  // ---------------------------------------------------------------------------
-  // let ref
-  // if (refBranch) {
-  //   try {
-  //     ref = await createPullRequest(
-  //       refBranch,
-  //       headBranch,
-  //       `Automatic Merge: ${headBranch} -> ${refBranch}`
-  //     )
-  //   } catch (error) {
-  //     const errorResponseData = error.response.data
-  //     if (error.status === 422) {
-  //       console.info('Got a 422 error', error)
-  //       if (errorResponseData.errors[0].message.startsWith('No commits between')) {
-  //         await addCommentToOriginalPullRequest(
-  //           `Skipping creation of cascading PR to merge "__${headBranch}__" into "__${refBranch}__"
-  //           There are no commits between these branches. Continuing auto-merge action...`
-  //         )
-  //         await addCommentToOriginalPullRequest(':white_check_mark: Auto-merge was successful.')
-  //         return // success
-  //       } else if (errorResponseData.errors[0].message.startsWith('A pull request already exists')) {
-  //         await addCommentToOriginalPullRequest(
-  //           `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${headBranch}__" into "__${refBranch}__"
-  //           but there is already a pull request open. Can't continue auto-merge action.`
-  //         )
-  //         success = false
-  //         await addCommentToOriginalPullRequest(':bangbang: Auto-merge action did not complete successfully. Please review issues.')
-  //         return
-  //       } else {
-  //         const issueNumber = (await createIssue(
-  //           ':heavy_exclamation_mark: Problem with cascading Auto-Merge',
-  //           `Unknown issue when creating a PR to merge "__${headBranch}__" into refBranch "__${refBranch}__"
-  //           Please try to resolve the issue. **Cascading Auto-Merge has been stopped!**
-  //           error: "${JSON.stringify(errorResponseData)}"`
-  //         )).data.number
-  //         await addCommentToOriginalPullRequest(
-  //           `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${headBranch}__" into refBranch "__${refBranch}__" but encountered an issue: "${JSON.stringify(errorResponseData)}".
-  //           Created an issue #${issueNumber}. Can't continue auto-merge action.`
-  //         )
-  //         // stop the cascading auto-merge
-  //         console.error(error)
-  //         success = false
-  //         await addCommentToOriginalPullRequest(':bangbang: Auto-merge action did not complete successfully. Please review issues.')
-  //         return // with error
-  //       }
-  //     }
-  //   }
-  //   try {
-  //     await addCommentToOriginalPullRequest(
-  //       `Created cascading Auto-Merge PR #${ref.data.number} to merge "__${headBranch}__" into the refBranch "__${refBranch}__"`
-  //     )
-
-  //     // MERGE the PR
-  //     await mergePullRequest(ref.data.number)
-  //   } catch (error) { // could not create the PR
-  //     const errorResponseData = error.response.data
-  //     if (error.status === 405) {
-  //       console.info('got a 405 error:', error)
-  //       const issueNumber = (await createIssue(
-  //         ':heavy_exclamation_mark: Problem with cascading Auto-Merge. Ran into a merge conflict.',
-  //         `Issue with cascading auto-merge, please try to resolve the merge conflicts - PR #${ref.data.number}.
-  //         **Cascading Auto-Merge has been stopped!**
-  //         Originating PR #${originalPullRequestNumber}`
-  //       )).data.number
-  //       await addCommentToOriginalPullRequest(
-  //         `:heavy_exclamation_mark: Could not auto merge PR #${ref.data.number} due to merge conflicts.
-  //         Created an issue #${issueNumber}. Can't continue auto-merge action.`
-  //       )
-  //       success = false
-  //     } else {
-  //       console.error(error)
-  //       const issueNumber = await createIssue(
-  //         ':heavy_exclamation_mark: Problem with cascading Auto-Merge.',
-  //         `Issue with auto-merging a PR.
-  //         Please try to resolve the Issue. **Cascading Auto-Merge has been stopped!**
-  //         Originating PR #${originalPullRequestNumber}
-  //         ${JSON.stringify(errorResponseData)}`
-  //       )
-  //       await addCommentToOriginalPullRequest(
-  //         `:heavy_exclamation_mark: Tried to create a cascading PR to merge "__${headBranch}__" into "__${refBranch}__" but encountered an issue: "${JSON.stringify(errorResponseData)}".
-  //         Created an issue #${issueNumber}. Can't continue auto-merge action.`
-  //       )
-  //       success = false
-  //     }
-  //   }
-  // }
   if (success) {
-    await addCommentToOriginalPullRequest(':white_check_mark: Auto-merge was successful.')
+    await octokit.rest.issues.createComment({
+      owner: repository.owner,
+      repo: repository.repo,
+      issue_number: pullNumber,
+      body: ':white_check_mark: Auto-merge was successful.'
+    })
   } else {
-    await addCommentToOriginalPullRequest(':bangbang: Auto-merge action did not complete successfully. Please review issues.')
+    await octokit.rest.issues.createComment({
+      owner: repository.owner,
+      repo: repository.repo,
+      issue_number: pullNumber,
+      body: ':bangbang: Auto-merge action did not complete successfully. Please review issues.'
+    })
   }
 }
 
-function createPullRequest (base, head, title) {
-  return octokit.rest.pulls.create({
-    owner: repository.owner,
-    repo: repository.repo,
-    base,
-    head,
-    title,
-    body: 'This PR was created automatically by the cascading downstream merge action.'
-  })
-}
-
-function addCommentToOriginalPullRequest (body) {
-  return octokit.rest.issues.createComment({
-    owner: repository.owner,
-    repo: repository.repo,
-    issue_number: originalPullRequestNumber,
-    body
-  })
-}
-
-function mergePullRequest (pullRequestNumber) {
-  return mergeOctokit.rest.pulls.merge({
-    owner: repository.owner,
-    repo: repository.repo,
-    pull_number: pullRequestNumber
-  })
-}
-
-function createIssue (title, body) {
-  return octokit.rest.issues.create({
-    owner: repository.owner,
-    repo: repository.repo,
-    assignees: [originalPullRequestActor],
-    title,
-    body
-  })
-}
 
 /**
 * @function getRepoBranchMergeOrder
