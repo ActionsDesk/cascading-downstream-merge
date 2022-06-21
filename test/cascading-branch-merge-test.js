@@ -56,7 +56,7 @@ describe('Cascade branch merge test', () => {
       'handle'
     )
 
-    // expect.assertions(7)
+    expect.assertions(7)
 
     expect(octokit.paginate).toHaveBeenCalledWith(
       octokit.rest.repos.listBranches,
