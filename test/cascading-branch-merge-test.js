@@ -112,6 +112,66 @@ describe('Cascade branch merge test', () => {
     expect(octokit.rest.issues.create).not.toHaveBeenCalled()
   })
 
+  test('Fix conflict continues cascade', async () => {
+    await automerge.cascadingBranchMerge(
+      ['release/'],
+      'develop',
+      'release/1.2',
+      'release/1.3',
+      exampleRepo,
+      octokit,
+      octokit,
+      12,
+      'handle'
+    )
+
+    expect.assertions(7)
+
+    expect(octokit.rest.repos.listBranches).toHaveBeenCalledWith(
+      {
+        owner: 'ActionsDesk',
+        repo: 'hello-world',
+        per_page: 100
+      }
+    )
+
+    expect(octokit.rest.pulls.create).toHaveBeenCalledWith(
+      {
+        owner: 'ActionsDesk',
+        repo: 'hello-world',
+        base: 'release/1.3',
+        head: 'release/1.2',
+        title: expect.anything(),
+        body: expect.anything()
+      }
+    )
+
+
+    expect(octokit.rest.pulls.create).toHaveBeenCalledWith(
+      {
+        owner: 'ActionsDesk',
+        repo: 'hello-world',
+        base: 'develop',
+        head: 'release/1.3',
+        title: expect.anything(),
+        body: expect.anything()
+      }
+    )
+    expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(2)
+
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
+      {
+        owner: 'ActionsDesk',
+        repo: 'hello-world',
+        issue_number: 12,
+        body: ':white_check_mark: Auto-merge was successful.'
+      }
+    )
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledTimes(3)
+
+    expect(octokit.rest.issues.create).not.toHaveBeenCalled()
+  })
+
   test('Check create PR no commits between adds comment and continues', async () => {
     const error = new RequestError('Validation Failed', 422, {
       request: {
@@ -419,6 +479,84 @@ describe('Cascade branch merge test', () => {
     expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(1)
 
     expect(octokit.rest.pulls.merge).toHaveBeenCalledTimes(1)
+  })
+
+  test('Check merge PR unhandled error adds a comment, opens an issue, breaks', async () => {
+    const error = new RequestError('Validation Failed', 500, {
+      request: {
+        method: 'POST',
+        url: 'https://api.github.com/foo',
+        body: {
+          bar: 'baz'
+        },
+        headers: {
+          authorization: 'token secret123'
+        }
+      },
+      response: {
+        status: 500,
+        url: 'https://api.github.com/foo',
+        headers: {
+          'x-github-request-id': '1:2:3:4'
+        },
+        data: {
+          message: 'Some Unhandled Error',
+          errors: [
+            {
+              message: 'Unhandled Exception'
+            }
+          ]
+        }
+      }
+    })
+
+    octokit.rest.pulls.merge.mockRejectedValue(error)
+
+    await automerge.cascadingBranchMerge(
+      ['release/'],
+      'develop',
+      'my-feature',
+      'release/1.0',
+      exampleRepo,
+      octokit,
+      octokit,
+      12,
+      'handle'
+    )
+
+    // expect.assertions(5)
+
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
+      {
+        owner: 'ActionsDesk',
+        repo: 'hello-world',
+        issue_number: 12,
+        body: expect.stringMatching(/.*Tried merge PR #13.*/)
+      }
+    )
+
+    expect(octokit.rest.issues.create).toHaveBeenCalledWith(
+      {
+        owner: 'ActionsDesk',
+        repo: 'hello-world',
+        assignees: ['handle'],
+        title: ':heavy_exclamation_mark: Problem with cascading Auto-Merge.',
+        body: expect.stringMatching(/^Issue with auto-merging a PR.*/)
+      }
+    )
+
+    expect(octokit.rest.issues.createComment).toHaveBeenCalledWith(
+      {
+        owner: 'ActionsDesk',
+        repo: 'hello-world',
+        issue_number: 12,
+        body: ':bangbang: Auto-merge action did not complete successfully. Please review issues.'
+      }
+    )
+
+    expect(octokit.rest.issues.create).toHaveBeenCalledTimes(1)
+
+    expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(1)
   })
 
   test('getBranchMergeOrder returns ordered branches with semantic year branch name', async () => {
