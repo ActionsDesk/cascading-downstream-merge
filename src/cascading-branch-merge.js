@@ -48,11 +48,13 @@ async function cascadingBranchMerge (
   octokit = octokitObject
   mergeOctokit = mergeOctokitObject
 
-  const branches = (await octokit.rest.repos.listBranches({
+  const branches = await octokit.paginate(octokit.rest.repos.listBranches, {
     owner: repository.owner,
     repo: repository.repo,
     per_page: 100
-  })).data
+  },
+  response => response.data
+  )
   console.log(`Found ${branches.length} branches on repo ${repository.repo}.`)
 
   let mergeListHead = []
@@ -343,8 +345,10 @@ function getBranchMergeOrder (prefix, headBranch, branches) {
   }
 
   // return only the versions that are 'younger' than the PR version
-  while (branchList[0] !== headBranch) {
-    branchList.shift()
+  if (branchList.length !== 0) {
+    while (branchList[0] !== headBranch) {
+      branchList.shift()
+    }
   }
 
   return branchList

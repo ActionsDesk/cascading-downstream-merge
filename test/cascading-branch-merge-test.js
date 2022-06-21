@@ -4,16 +4,17 @@ const github = require('@actions/github')
 
 github.getOctokit = jest.fn().mockImplementation(() => {
   return {
+    paginate: jest.fn().mockReturnValue(
+      [
+        { name: 'release/1.0' },
+        { name: 'release/1.2' },
+        { name: 'release/1.3' },
+        { name: 'main' }
+      ]
+    ),
     rest: {
       repos: {
-        listBranches: jest.fn().mockReturnValue({
-          data: [
-            { name: 'release/1.0' },
-            { name: 'release/1.2' },
-            { name: 'release/1.3' },
-            { name: 'main' }
-          ]
-        })
+        listBranches: jest.fn()
       },
       pulls: {
         create: jest.fn().mockReturnValue({
@@ -57,12 +58,14 @@ describe('Cascade branch merge test', () => {
 
     expect.assertions(7)
 
-    expect(octokit.rest.repos.listBranches).toHaveBeenCalledWith(
+    expect(octokit.paginate).toHaveBeenCalledWith(
+      octokit.rest.repos.listBranches,
       {
         owner: 'ActionsDesk',
         repo: 'hello-world',
         per_page: 100
-      }
+      },
+      expect.anything()
     )
 
     expect(octokit.rest.pulls.create).toHaveBeenCalledWith(
@@ -476,6 +479,21 @@ describe('Cascade branch merge test', () => {
     ])
   })
 
+  test('getBranchMergeOrder no prefix matches returns an empty list', async () => {
+    const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
+    const response = await getBranchMergeOrder(
+      'release/',
+      'main',
+      [
+        { name: 'feature/10.2' },
+        { name: 'main' }
+      ]
+    )
+    expect.assertions(1)
+
+    expect(response).toEqual([])
+  })
+
   test('getBranchMergeOrder returns ordered branches with semantic year branch name with underscore', async () => {
     const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
     const response = await getBranchMergeOrder(
@@ -523,6 +541,36 @@ describe('Cascade branch merge test', () => {
       'release/2023_05'
     ])
   })
+
+  test('getBranchMergeOrder returns ordered branches with semantic year branch name with underscore and periods', async () => {
+    const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
+    const response = await getBranchMergeOrder(
+      'release/',
+      'release/2022_04.2',
+      [
+        { name: 'release/2022_05.2' },
+        { name: 'release/2022_07' },
+        { name: 'release/2022_04.4' },
+        { name: 'release/2022_03.2' },
+        { name: 'release/2022_04.3.1' },
+        { name: 'release/2022_04.2' },
+        { name: 'release/2022_06' },
+        { name: 'release/2022_08' }
+      ]
+    )
+    expect.assertions(1)
+
+    expect(response).toEqual([
+      'release/2022_04.2',
+      'release/2022_04.3.1',
+      'release/2022_04.4',
+      'release/2022_05.2',
+      'release/2022_06',
+      'release/2022_07',
+      'release/2022_08'
+    ])
+  })
+
   test('Check create PR no commits between ref branch adds comment', async () => {
     const error = new RequestError('Validation Failed', 422, {
       request: {
