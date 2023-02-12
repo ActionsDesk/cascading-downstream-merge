@@ -54,7 +54,7 @@
     "@actions/core": "^1.8.2",
     "@actions/github": "^5.0.3",
     "@octokit/action": "^3.18.1",
-    "nodemon": "^2.0.16"
+    "nodemon": "^2.0.20"
   },
   "devDependencies": {
     "babel-jest": "^28.1.1",
