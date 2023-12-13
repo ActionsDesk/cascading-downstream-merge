@@ -8734,7 +8734,7 @@ async function cascadingBranchMerge (
   const branches = await octokit.paginate(octokit.rest.repos.listBranches, {
     owner: repository.owner,
     repo: repository.repo,
-    per_page: 100
+    per_page: 50
   },
   response => response.data
   )
