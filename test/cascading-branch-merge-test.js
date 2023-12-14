@@ -63,7 +63,7 @@ describe('Cascade branch merge test', () => {
       {
         owner: 'ActionsDesk',
         repo: 'hello-world',
-        per_page: 100
+        per_page: 50
       },
       expect.anything()
     )
@@ -135,7 +135,7 @@ describe('Cascade branch merge test', () => {
       {
         owner: 'ActionsDesk',
         repo: 'hello-world',
-        per_page: 100
+        per_page: 50
       },
       expect.anything()
     )
