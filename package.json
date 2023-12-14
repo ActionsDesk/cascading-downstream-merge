@@ -1,6 +1,6 @@
 {
   "name": "cascading-downstream-merge",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "GitHub action to automatically merge downstream branches based on semantic versioning",
   "main": "src/index.js",
   "directories": {
@@ -44,6 +44,9 @@
     "cicd",
     "bitbucket"
   ],
+  "engines": {
+    "node": ">=20"
+  },
   "author": "jefeish",
   "license": "MIT",
   "bugs": {
@@ -51,10 +54,10 @@
   },
   "homepage": "https://github.com/ActionsDesk/cascading-downstream-merge#readme",
   "dependencies": {
-    "@actions/core": "^1.8.2",
-    "@actions/github": "^5.0.3",
-    "@octokit/action": "^3.18.1",
-    "nodemon": "^2.0.16"
+    "@actions/core": "^1.10.1",
+    "@actions/github": "^6.0.0",
+    "@octokit/action": "^6.0.7",
+    "nodemon": "^3.0.2"
   },
   "devDependencies": {
     "babel-jest": "^28.1.1",
