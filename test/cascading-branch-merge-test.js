@@ -562,119 +562,244 @@ describe('Cascade branch merge test', () => {
     expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(1)
   })
 
-  test('getBranchMergeOrder returns ordered branches with semantic year branch name', async () => {
-    const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
-    const response = await getBranchMergeOrder(
-      'release/',
-      'release/2022.02',
-      [
-        { name: 'release/2022.02' },
-        { name: 'feature/10.2' },
-        { name: 'release/2022.01' },
-        { name: 'release/2022.02.4' },
-        { name: 'release/2022.05' },
-        { name: 'release/2023.05' },
-        { name: 'release-123' }
-      ]
-    )
-    expect.assertions(1)
+  describe('getBranchMergeOrder', () => {
+    test('returns ordered branches with semantic year branch name', async () => {
+      const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
+      const response = await getBranchMergeOrder(
+        'release/',
+        'release/2022.02',
+        [
+          { name: 'release/2022.02' },
+          { name: 'feature/10.2' },
+          { name: 'release/2022.01' },
+          { name: 'release/2022.02.4' },
+          { name: 'release/2022.05' },
+          { name: 'release/2023.05' },
+          { name: 'release-123' },
+          { name: 'release/2023' },
+        ]
+      )
+      expect.assertions(1)
 
-    expect(response).toEqual([
-      'release/2022.02',
-      'release/2022.02.4',
-      'release/2022.05',
-      'release/2023.05'
-    ])
+      expect(response).toEqual([
+        'release/2022.02',
+        'release/2022.02.4',
+        'release/2022.05',
+        'release/2023',
+        'release/2023.05'
+      ])
+    })
+
+    test('no prefix matches returns an empty list', async () => {
+      const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
+      const response = await getBranchMergeOrder(
+        'release/',
+        'develop',
+        [
+          { name: 'feature/10.2' },
+          { name: 'develop' }
+        ]
+      )
+      expect.assertions(1)
+
+      expect(response).toEqual([])
+    })
+
+    test('returns ordered branches with semantic year branch name with underscore', async () => {
+      const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
+      const response = await getBranchMergeOrder(
+        'release/',
+        'release/2022_06',
+        [
+          { name: 'release/2022_02' },
+          { name: 'release/2022_02_4' },
+          { name: 'release/2022_05' },
+          { name: 'release/2022_07' },
+          { name: 'release/2022_06' },
+          { name: 'release/2023_05' }
+        ]
+      )
+      expect.assertions(1)
+
+      expect(response).toEqual([
+        'release/2022_06',
+        'release/2022_07',
+        'release/2023_05'
+      ])
+    })
+
+    test('returns ordered branches with semantic year branch name with underscore or periods', async () => {
+      const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
+      const response = await getBranchMergeOrder(
+        'release/',
+        'release/2022_06',
+        [
+          { name: 'release/2023_05' },
+          { name: 'release/2022_05' },
+          { name: 'release/2022_07' },
+          { name: 'release/2022_02_4' },
+          { name: 'release/2022_02' },
+          { name: 'release/2022_06' },
+          { name: 'release/2022.08' }
+        ]
+      )
+      expect.assertions(1)
+
+      expect(response).toEqual([
+        'release/2022_06',
+        'release/2022_07',
+        'release/2022.08',
+        'release/2023_05'
+      ])
+    })
+    test('returns ordered branches with semantic year branch name with underscore and periods', async () => {
+      const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
+      const response = await getBranchMergeOrder(
+        'release/',
+        'release/2022_04.2',
+        [
+          { name: 'release/2022_05.2' },
+          { name: 'release/2022_07' },
+          { name: 'release/2022_04.4' },
+          { name: 'release/2022_03.2' },
+          { name: 'release/2022_04.3.1' },
+          { name: 'release/2022_04.2' },
+          { name: 'release/2022_06' },
+          { name: 'release/2022_08' }
+        ]
+      )
+      expect.assertions(1)
+
+      expect(response).toEqual([
+        'release/2022_04.2',
+        'release/2022_04.3.1',
+        'release/2022_04.4',
+        'release/2022_05.2',
+        'release/2022_06',
+        'release/2022_07',
+        'release/2022_08'
+      ])
+    })
+
+    test('handles custom formatted "major" release branches used in some organizations', async () => {
+      const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
+      const response = await getBranchMergeOrder(
+        'release/',
+        'release/d-3-2024-01-07-avocado',
+        [
+          { name: 'release/d-3-2024-01-07-avocado' },
+          { name: 'release/d-1-2022-09-22-mercury' },
+          { name: 'release/d-5' },
+          { name: 'release/d-3-2024-06-21-cucumber' },
+          { name: 'release/d-4' },
+          { name: 'release/d-3-2024-06-03-carrot' },
+          { name: 'release/d-4-2025-08-09-legal' },
+        ]
+      )
+      expect.assertions(1)
+
+      expect(response).toEqual([
+        'release/d-3-2024-01-07-avocado',
+        'release/d-3-2024-06-03-carrot',
+        'release/d-3-2024-06-21-cucumber',
+        'release/d-4',
+        'release/d-4-2025-08-09-legal',
+        'release/d-5'
+      ])
+    })
   })
 
-  test('getBranchMergeOrder no prefix matches returns an empty list', async () => {
-    const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
-    const response = await getBranchMergeOrder(
-      'release/',
-      'develop',
-      [
-        { name: 'feature/10.2' },
-        { name: 'develop' }
-      ]
-    )
-    expect.assertions(1)
+  describe('isBiggerThan', () => {
+    test('handles different sized arrays', () => {
+      const isBiggerThan = automerge.__get__('isBiggerThan')
+      const response = isBiggerThan([2022, 2, 4], [2022, 2])
+      expect.assertions(1)
 
-    expect(response).toEqual([])
+      expect(response).toBe(true)
+    })
+
+    test('false when equal', () => {
+      const isBiggerThan = automerge.__get__('isBiggerThan')
+      const response = isBiggerThan([2022, 2, 4, 3], [2022, 2, 4, 3, 0])
+      expect.assertions(1)
+
+      expect(response).toBe(false)
+    })
   })
 
-  test('getBranchMergeOrder returns ordered branches with semantic year branch name with underscore', async () => {
-    const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
-    const response = await getBranchMergeOrder(
-      'release/',
-      'release/2022_06',
-      [
-        { name: 'release/2022_02' },
-        { name: 'release/2022_02_4' },
-        { name: 'release/2022_05' },
-        { name: 'release/2022_07' },
-        { name: 'release/2022_06' },
-        { name: 'release/2023_05' }
-      ]
-    )
-    expect.assertions(1)
+  describe('semanticVersionToArray', () => {
+    test('returns an array of integers', () => {
+      const semanticVersionToArray = automerge.__get__('semanticVersionToArray')
+      const response = semanticVersionToArray('release/2022.02.4')
+      expect.assertions(1)
 
-    expect(response).toEqual([
-      'release/2022_06',
-      'release/2022_07',
-      'release/2023_05'
-    ])
-  })
+      expect(response).toEqual([2022, 2, 4])
+    })
 
-  test('getBranchMergeOrder returns ordered branches with semantic year branch name with underscore or periods', async () => {
-    const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
-    const response = await getBranchMergeOrder(
-      'release/',
-      'release/2022_06',
-      [
-        { name: 'release/2023_05' },
-        { name: 'release/2022_05' },
-        { name: 'release/2022_07' },
-        { name: 'release/2022_02_4' },
-        { name: 'release/2022_02' },
-        { name: 'release/2022_06' },
-        { name: 'release/2022.08' }
-      ]
-    )
-    expect.assertions(1)
+    test('returns an array of integers with underscore', () => {
+      const semanticVersionToArray = automerge.__get__('semanticVersionToArray')
+      const response = semanticVersionToArray('release/2022_07')
+      expect.assertions(1)
 
-    expect(response).toEqual([
-      'release/2022_06',
-      'release/2022_07',
-      'release/2022.08',
-      'release/2023_05'
-    ])
-  })
-  test('getBranchMergeOrder returns ordered branches with semantic year branch name with underscore and periods', async () => {
-    const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
-    const response = await getBranchMergeOrder(
-      'release/',
-      'release/2022_04.2',
-      [
-        { name: 'release/2022_05.2' },
-        { name: 'release/2022_07' },
-        { name: 'release/2022_04.4' },
-        { name: 'release/2022_03.2' },
-        { name: 'release/2022_04.3.1' },
-        { name: 'release/2022_04.2' },
-        { name: 'release/2022_06' },
-        { name: 'release/2022_08' }
-      ]
-    )
-    expect.assertions(1)
+      expect(response).toEqual([2022, 7])
+    })
 
-    expect(response).toEqual([
-      'release/2022_04.2',
-      'release/2022_04.3.1',
-      'release/2022_04.4',
-      'release/2022_05.2',
-      'release/2022_06',
-      'release/2022_07',
-      'release/2022_08'
-    ])
+    test('returns an array of integers with periods', () => {
+      const semanticVersionToArray = automerge.__get__('semanticVersionToArray')
+      const response = semanticVersionToArray('release/2022.02')
+      expect.assertions(1)
+
+      expect(response).toEqual([2022, 2])
+    })
+
+    test('handles custom formatted "major" release branches used in some organizations', () => {
+      const semanticVersionToArray = automerge.__get__('semanticVersionToArray')
+      const response = semanticVersionToArray('release/d-3-2024-01-07-avocado')
+      expect.assertions(1)
+
+      expect(response).toEqual([0, 3, 2024, 1, 7, 0])
+    })
+
+    describe('pre-release tags', () => {
+      test('alpha', () => {
+        const semanticVersionToArray = automerge.__get__('semanticVersionToArray')
+        const response = semanticVersionToArray('release/2022.02.4-alpha')
+        expect.assertions(1)
+
+        expect(response).toEqual([2022, 2, 4, -3])
+      })
+
+      test('beta', () => {
+        const semanticVersionToArray = automerge.__get__('semanticVersionToArray')
+        const response = semanticVersionToArray('release/2022.02.4.3-beta')
+        expect.assertions(1)
+
+        expect(response).toEqual([2022, 2, 4, 3, -2])
+      })
+
+      test('rc', () => {
+        const semanticVersionToArray = automerge.__get__('semanticVersionToArray')
+        const response = semanticVersionToArray('release/2022.02-rc')
+        expect.assertions(1)
+
+        expect(response).toEqual([2022, 2, -1])
+      })
+
+      test('tag followed by a number', () => {
+        const semanticVersionToArray = automerge.__get__('semanticVersionToArray')
+        const response = semanticVersionToArray('release/1.1-rc.1')
+        expect.assertions(1)
+
+        expect(response).toEqual([1, 1, -1, 1])
+      })
+
+      test('handles random words (something other than pre-release tag)', () => {
+        const semanticVersionToArray = automerge.__get__('semanticVersionToArray')
+        const response = semanticVersionToArray('release/2022.02.4-other')
+        expect.assertions(1)
+
+        expect(response).toEqual([2022, 2, 4, 0])
+      })
+    })
   })
 })

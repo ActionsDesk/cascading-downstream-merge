@@ -243,19 +243,9 @@ function getBranchMergeOrder (prefix, headBranch, branches) {
   // filter the branch names that start with the required prefix
   branchList = branchList.filter(b => b.startsWith(prefix))
 
-  const len = branchList.length
-
   console.log('getBranchMergeOrder - branchList: ', branchList)
-  // Bubble Sort - I know... but it's fine for our purpose
-  for (let j = 0; j < len - 1; j++) {
-    for (let i = 0; i < len - 1; i++) {
-      const res = isBiggerThan(semanticVersionToArray(branchList[i]), semanticVersionToArray(branchList[i + 1]))
 
-      if (res) {
-        swap(branchList, i, i + 1)
-      }
-    }
-  }
+  branchList.sort((a, b) => isBiggerThan(semanticVersionToArray(a), semanticVersionToArray(b)) ? 1 : -1);
 
   // return only the versions that are 'younger' than the PR version
   if (branchList.length !== 0) {
@@ -268,83 +258,55 @@ function getBranchMergeOrder (prefix, headBranch, branches) {
 }
 
 /**
-* @function swap
-* @description Simple support utility for sorting arrays
-*
-* @param arr
-* @param first_Index
-* @param second_Index
-*/
-function swap (arr, index1, index2) {
-  const temp = arr[index1]
-  arr[index1] = arr[index2]
-  arr[index2] = temp
-}
-
-/**
 * @function isBiggerThan
 * @description Compare the semantic versions v1 > v2 ?
 *
-* @param v1
-* @param v2
+* @param {number[]} v1
+* @param {number[]} v2
+* @returns {boolean} Returns true if v1 is greater than v2, otherwise false
 */
-function isBiggerThan (v1, v2) {
-  for (let i = 0; i < 5; i++) {
-    if (v1[i] === v2[i]) {
-      continue
-    } else if (v1[i] > v2[i]) {
-      return true
-    } else {
-      return false
+function isBiggerThan(v1, v2) {
+  for (let i = 0; i < Math.max(v1.length, v2.length); i++) {
+    const val1 = v1[i] || 0;
+    const val2 = v2[i] || 0;
+    if (val1 !== val2) {
+      return val1 > val2;
     }
   }
-  return false
+  return false;
 }
 /**
 * @function semanticVersionToArray
-* @description Translate the 'string' type version to a normalized (5 digits) 'number' type array
+* @description Translate the 'string' type version to a 'number' type array
 *  Example
 *     input: "release/1.1-rc.1"
-*    output: [1,1,0,3,1]
+*    output: [1,1,-1,1]
 *
 * @param vStr
 */
 function semanticVersionToArray (vStr) {
   // creating a 'lookup' table for the semantic versioning, to translate the 'release-name' to a number
+  // Use negative numbers to always come before 'final' releases
   const preRelease = new Map()
-  preRelease.set('alpha', 1)
-  preRelease.set('beta', 2)
-  preRelease.set('rc', 3)
+  preRelease.set('alpha', -3)
+  preRelease.set('beta', -2)
+  preRelease.set('rc', -1)
 
-  const av = []
   // 1.1.rc.1
-  // "release/1.1-rc.1"  -->  ['1','1-rc','1']
-  const avTemp = vStr.split('/')[1].split(/_|\./)
+  // "release/1.1-rc.1"  -->  ['1','1','rc','1']
+  const avTemp = vStr.split('/')[1].split(/_|\.|-/)
 
-  avTemp.forEach(function (v, index) {
-    // if version contains a 'pre-release' tag
-    if (v.includes('-')) {
-      const vTemp = v.split('-')
-      if (index === 1) {
-        // short version number - 1.1-rc
-        av.splice(index, 1, parseInt(vTemp[0], 10))
-        av.splice(index + 1, 1, 0)
-        av.splice(index + 2, 0, preRelease.get(vTemp[1]))
-      } else {
-        // full version number - 1.1.0-rc
-        av.splice(index, 1, parseInt(vTemp[0], 10))
-        av.splice(index + 1, 0, preRelease.get(vTemp[1]))
-      }
-    } else {
-      av.push(parseInt(v))
+  return avTemp.map((v) => {
+    if (preRelease.has(v)) {
+      return preRelease.get(v)
     }
-  })
 
-  // make sure we get the standard length (5), fill with 0
-  if (av.length < 4) { av[3] = 0 }
-  if (av.length < 5) { av[4] = 0 }
-  // [1,1,0,3,1]
-  return av
+    if (isNaN(v)) {
+      return 0
+    }
+
+    return parseInt(v, 10);
+  })
 }
 
 module.exports = {
