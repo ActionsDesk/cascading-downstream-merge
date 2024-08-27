@@ -562,119 +562,150 @@ describe('Cascade branch merge test', () => {
     expect(octokit.rest.pulls.create).toHaveBeenCalledTimes(1)
   })
 
-  test('getBranchMergeOrder returns ordered branches with semantic year branch name', async () => {
-    const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
-    const response = await getBranchMergeOrder(
-      'release/',
-      'release/2022.02',
-      [
-        { name: 'release/2022.02' },
-        { name: 'feature/10.2' },
-        { name: 'release/2022.01' },
-        { name: 'release/2022.02.4' },
-        { name: 'release/2022.05' },
-        { name: 'release/2023.05' },
-        { name: 'release-123' }
-      ]
-    )
-    expect.assertions(1)
+  describe('getBranchMergeOrder', () => {
+    test('returns ordered branches with semantic year branch name', async () => {
+      const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
+      const response = await getBranchMergeOrder(
+        'release/',
+        'release/2022.02',
+        [
+          { name: 'release/2022.02' },
+          { name: 'feature/10.2' },
+          { name: 'release/2022.01' },
+          { name: 'release/2022.02.4' },
+          { name: 'release/2022.05' },
+          { name: 'release/2023.05' },
+          { name: 'release-123' },
+          { name: 'release/2023' },
+        ]
+      )
+      expect.assertions(1)
 
-    expect(response).toEqual([
-      'release/2022.02',
-      'release/2022.02.4',
-      'release/2022.05',
-      'release/2023.05'
-    ])
-  })
+      expect(response).toEqual([
+        'release/2022.02',
+        'release/2022.02.4',
+        'release/2022.05',
+        'release/2023',
+        'release/2023.05'
+      ])
+    })
 
-  test('getBranchMergeOrder no prefix matches returns an empty list', async () => {
-    const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
-    const response = await getBranchMergeOrder(
-      'release/',
-      'develop',
-      [
-        { name: 'feature/10.2' },
-        { name: 'develop' }
-      ]
-    )
-    expect.assertions(1)
+    test('no prefix matches returns an empty list', async () => {
+      const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
+      const response = await getBranchMergeOrder(
+        'release/',
+        'develop',
+        [
+          { name: 'feature/10.2' },
+          { name: 'develop' }
+        ]
+      )
+      expect.assertions(1)
 
-    expect(response).toEqual([])
-  })
+      expect(response).toEqual([])
+    })
 
-  test('getBranchMergeOrder returns ordered branches with semantic year branch name with underscore', async () => {
-    const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
-    const response = await getBranchMergeOrder(
-      'release/',
-      'release/2022_06',
-      [
-        { name: 'release/2022_02' },
-        { name: 'release/2022_02_4' },
-        { name: 'release/2022_05' },
-        { name: 'release/2022_07' },
-        { name: 'release/2022_06' },
-        { name: 'release/2023_05' }
-      ]
-    )
-    expect.assertions(1)
+    test('returns ordered branches with semantic year branch name with underscore', async () => {
+      const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
+      const response = await getBranchMergeOrder(
+        'release/',
+        'release/2022_06',
+        [
+          { name: 'release/2022_02' },
+          { name: 'release/2022_02_4' },
+          { name: 'release/2022_05' },
+          { name: 'release/2022_07' },
+          { name: 'release/2022_06' },
+          { name: 'release/2023_05' }
+        ]
+      )
+      expect.assertions(1)
 
-    expect(response).toEqual([
-      'release/2022_06',
-      'release/2022_07',
-      'release/2023_05'
-    ])
-  })
+      expect(response).toEqual([
+        'release/2022_06',
+        'release/2022_07',
+        'release/2023_05'
+      ])
+    })
 
-  test('getBranchMergeOrder returns ordered branches with semantic year branch name with underscore or periods', async () => {
-    const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
-    const response = await getBranchMergeOrder(
-      'release/',
-      'release/2022_06',
-      [
-        { name: 'release/2023_05' },
-        { name: 'release/2022_05' },
-        { name: 'release/2022_07' },
-        { name: 'release/2022_02_4' },
-        { name: 'release/2022_02' },
-        { name: 'release/2022_06' },
-        { name: 'release/2022.08' }
-      ]
-    )
-    expect.assertions(1)
+    test('returns ordered branches with semantic year branch name with underscore or periods', async () => {
+      const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
+      const response = await getBranchMergeOrder(
+        'release/',
+        'release/2022_06',
+        [
+          { name: 'release/2023_05' },
+          { name: 'release/2022_05' },
+          { name: 'release/2022_07' },
+          { name: 'release/2022_02_4' },
+          { name: 'release/2022_02' },
+          { name: 'release/2022_06' },
+          { name: 'release/2022.08' }
+        ]
+      )
+      expect.assertions(1)
 
-    expect(response).toEqual([
-      'release/2022_06',
-      'release/2022_07',
-      'release/2022.08',
-      'release/2023_05'
-    ])
-  })
-  test('getBranchMergeOrder returns ordered branches with semantic year branch name with underscore and periods', async () => {
-    const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
-    const response = await getBranchMergeOrder(
-      'release/',
-      'release/2022_04.2',
-      [
-        { name: 'release/2022_05.2' },
-        { name: 'release/2022_07' },
-        { name: 'release/2022_04.4' },
-        { name: 'release/2022_03.2' },
-        { name: 'release/2022_04.3.1' },
-        { name: 'release/2022_04.2' },
-        { name: 'release/2022_06' },
-        { name: 'release/2022_08' }
-      ]
-    )
-    expect.assertions(1)
+      expect(response).toEqual([
+        'release/2022_06',
+        'release/2022_07',
+        'release/2022.08',
+        'release/2023_05'
+      ])
+    })
+    test('returns ordered branches with semantic year branch name with underscore and periods', async () => {
+      const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
+      const response = await getBranchMergeOrder(
+        'release/',
+        'release/2022_04.2',
+        [
+          { name: 'release/2022_05.2' },
+          { name: 'release/2022_07' },
+          { name: 'release/2022_04.4' },
+          { name: 'release/2022_03.2' },
+          { name: 'release/2022_04.3.1' },
+          { name: 'release/2022_04.2' },
+          { name: 'release/2022_06' },
+          { name: 'release/2022_08' }
+        ]
+      )
+      expect.assertions(1)
 
-    expect(response).toEqual([
-      'release/2022_04.2',
-      'release/2022_04.3.1',
-      'release/2022_04.4',
-      'release/2022_05.2',
-      'release/2022_06',
-      'release/2022_07',
-      'release/2022_08'
-    ])
+      expect(response).toEqual([
+        'release/2022_04.2',
+        'release/2022_04.3.1',
+        'release/2022_04.4',
+        'release/2022_05.2',
+        'release/2022_06',
+        'release/2022_07',
+        'release/2022_08'
+      ])
+    })
+
+    test('handles custom formatted "major" release branches used in some organizations', async () => {
+      const getBranchMergeOrder = automerge.__get__('getBranchMergeOrder')
+      const response = await getBranchMergeOrder(
+        'release/',
+        'release/d-3-2024-01-07-avocado',
+        [
+          { name: 'release/d-3-2024-01-07-avocado' },
+          { name: 'release/d-1-2022-09-22-mercury' },
+          { name: 'release/d-5' },
+          { name: 'release/d-3-2024-06-21-cucumber' },
+          { name: 'release/d-4' },
+          { name: 'release/d-3-2024-06-03-carrot' },
+          { name: 'release/d-4-2025-08-09-legal' },
+        ]
+      )
+      expect.assertions(1)
+
+      expect(response).toEqual([
+        'release/d-3-2024-01-07-avocado',
+        'release/d-3-2024-06-03-carrot',
+        'release/d-3-2024-06-21-cucumber',
+        'release/d-4',
+        'release/d-4-2025-08-09-legal',
+        'release/d-5'
+      ])
+    })
   })
 })

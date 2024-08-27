@@ -16,8 +16,8 @@ let success = true
  *
  * @param prefixes
  * @param refBranch
- * @param headBranch
- * @param baseBranch
+ * @param {string} headBranch eg. feature/abc123
+ * @param {string} baseBranch eg. release/2022.05.04
  * @param repository
  * @param octokit
  * @param mergeOctokit
@@ -234,117 +234,112 @@ async function cascadingBranchMerge (
 * @param branches
 */
 function getBranchMergeOrder (prefix, headBranch, branches) {
-  let branchList = []
-  // create a list from the 'branches' array, containing only branch names
-  branches.forEach(function (branch) {
-    branchList.push(branch.name)
-  })
-
-  // filter the branch names that start with the required prefix
-  branchList = branchList.filter(b => b.startsWith(prefix))
-
-  const len = branchList.length
+  // create a list from the 'branches' array, containing only branch names with prefix
+  const branchList = branches
+    .map(branch => branch.name)
+    .filter(branch => branch.startsWith(prefix))
 
   console.log('getBranchMergeOrder - branchList: ', branchList)
-  // Bubble Sort - I know... but it's fine for our purpose
-  for (let j = 0; j < len - 1; j++) {
-    for (let i = 0; i < len - 1; i++) {
-      const res = isBiggerThan(semanticVersionToArray(branchList[i]), semanticVersionToArray(branchList[i + 1]))
 
-      if (res) {
-        swap(branchList, i, i + 1)
-      }
-    }
+  // sort based on branch ordering algorithm (https://confluence.atlassian.com/bitbucketserver/cascading-merge-776639993.html)
+  const orderedBranchList = bitbucketBranchOrderingAlgorithm(branchList, headBranch)
+
+  console.log('getBranchMergeOrder - orderedBranchList: ', orderedBranchList)
+
+  const headIndex = orderedBranchList.indexOf(headBranch)
+
+  // this shouldn't happen, but best to avoid any merges if it does
+  if (headIndex === -1) {
+    return []
   }
 
   // return only the versions that are 'younger' than the PR version
-  if (branchList.length !== 0) {
-    while (branchList[0] !== headBranch) {
-      branchList.shift()
-    }
+  return orderedBranchList.slice(headIndex)
+}
+
+/**
+ * @function bitbucketBranchOrderingAlgorithm
+ * @description Algorithm copied from the {@link https://confluence.atlassian.com/bitbucketserver/cascading-merge-776639993.html bitbucket documentation} 
+ * 
+ * 1. Branches are selected and ordered on the basis of the name of the
+ *    branch that started the cascade (i.e. the target of the pull
+ *    request for the merge).
+ * 
+ * 2. Branch names are split into tokens using any of these characters:
+ *    underscore '_', hyphen '-', plus'+', or period '.'.
+ * 
+ * 3. Only branches matching the name of the pull request target are
+ *    added into the merge path. Matching means that every token before
+ *    the first numeric token must be equal to the corresponding tokens
+ *    of the target branch's name.
+ * 
+ * 4. Branches are ordered by number, if a given token is numeric. When
+ *    comparing a numeric token with an ASCII token, the numeric is
+ *    ranked higher (that is, it is considered as being a newer
+ *    version).
+ * 
+ * 5. If both tokens are non-numeric, a simple ASCII comparison is used
+ * 
+ * 6. In the unlikely case of the above algorithm resulting in equality
+ *    of 2 branch names, a simple string comparison is performed on the
+ *    whole branch name.
+ * 
+ * @param {string[]} branchList
+ * @param {string} targetBranch
+ * @returns The ordered branches for the cascade merge
+ */
+function bitbucketBranchOrderingAlgorithm(branchList, targetBranch) {
+  const branchPrefix = targetBranch.slice(0, targetBranch.match(/\d/)?.index);
+  if (!branchPrefix) {
+    return [];
   }
 
   return branchList
-}
+    // condition #1 and #3 - filtering
+    .filter(b => b.startsWith(branchPrefix))
+    // condition #2 - tokenize from / - + _ .
+    .map(b => ({
+      original: b,
+      tokenized: b.split(/[\/\-\+\_\.]/)
+    }))
+    // condition #4 and #5 and #6 - comparisons
+    .sort((a, b) => {
+      for (let i = 0; i < Math.max(a.tokenized.length, b.tokenized.length); i++) {
+        // skip if equivalent
+        if (a.tokenized[i] === b.tokenized[i]) {
+          continue
+        }
 
-/**
-* @function swap
-* @description Simple support utility for sorting arrays
-*
-* @param arr
-* @param first_Index
-* @param second_Index
-*/
-function swap (arr, index1, index2) {
-  const temp = arr[index1]
-  arr[index1] = arr[index2]
-  arr[index2] = temp
-}
+        // handle release/2023 vs release/2023.05
+        if (i >= a.tokenized.length) {
+          return -1
+        } else if (i >= b.tokenized.length) {
+          return 1
+        }
 
-/**
-* @function isBiggerThan
-* @description Compare the semantic versions v1 > v2 ?
-*
-* @param v1
-* @param v2
-*/
-function isBiggerThan (v1, v2) {
-  for (let i = 0; i < 5; i++) {
-    if (v1[i] === v2[i]) {
-      continue
-    } else if (v1[i] > v2[i]) {
-      return true
-    } else {
-      return false
-    }
-  }
-  return false
-}
-/**
-* @function semanticVersionToArray
-* @description Translate the 'string' type version to a normalized (5 digits) 'number' type array
-*  Example
-*     input: "release/1.1-rc.1"
-*    output: [1,1,0,3,1]
-*
-* @param vStr
-*/
-function semanticVersionToArray (vStr) {
-  // creating a 'lookup' table for the semantic versioning, to translate the 'release-name' to a number
-  const preRelease = new Map()
-  preRelease.set('alpha', 1)
-  preRelease.set('beta', 2)
-  preRelease.set('rc', 3)
+        // actual comparison starts here
+        const numberA = parseInt(a.tokenized[i], 10)
+        const numberB = parseInt(b.tokenized[i], 10)
 
-  const av = []
-  // 1.1.rc.1
-  // "release/1.1-rc.1"  -->  ['1','1-rc','1']
-  const avTemp = vStr.split('/')[1].split(/_|\./)
+        // condition #4
+        if (!isNaN(numberA)) {
+          if (!isNaN(numberB)) { // both numbers
+            return numberA - numberB
+          } else { // a is number, b is string
+            return -1
+          }
+        } else if (!isNaN(numberB)) { // a is string, b is number
+          return 1
+        }
 
-  avTemp.forEach(function (v, index) {
-    // if version contains a 'pre-release' tag
-    if (v.includes('-')) {
-      const vTemp = v.split('-')
-      if (index === 1) {
-        // short version number - 1.1-rc
-        av.splice(index, 1, parseInt(vTemp[0], 10))
-        av.splice(index + 1, 1, 0)
-        av.splice(index + 2, 0, preRelease.get(vTemp[1]))
-      } else {
-        // full version number - 1.1.0-rc
-        av.splice(index, 1, parseInt(vTemp[0], 10))
-        av.splice(index + 1, 0, preRelease.get(vTemp[1]))
+        // condition #5 - both strings
+        return a.tokenized[i] > b.tokenized[i] ? 1 : -1
       }
-    } else {
-      av.push(parseInt(v))
-    }
-  })
 
-  // make sure we get the standard length (5), fill with 0
-  if (av.length < 4) { av[3] = 0 }
-  if (av.length < 5) { av[4] = 0 }
-  // [1,1,0,3,1]
-  return av
+      // condition #6
+      return a.original > b.original ? 1 : -1
+    })
+    .map(b => b.original)
 }
 
 module.exports = {
