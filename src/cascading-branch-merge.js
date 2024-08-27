@@ -16,8 +16,8 @@ let success = true
  *
  * @param prefixes
  * @param refBranch
- * @param headBranch
- * @param baseBranch
+ * @param {string} headBranch eg. feature/abc123
+ * @param {string} baseBranch eg. release/2022.05.04
  * @param repository
  * @param octokit
  * @param mergeOctokit
@@ -234,79 +234,112 @@ async function cascadingBranchMerge (
 * @param branches
 */
 function getBranchMergeOrder (prefix, headBranch, branches) {
-  let branchList = []
-  // create a list from the 'branches' array, containing only branch names
-  branches.forEach(function (branch) {
-    branchList.push(branch.name)
-  })
-
-  // filter the branch names that start with the required prefix
-  branchList = branchList.filter(b => b.startsWith(prefix))
+  // create a list from the 'branches' array, containing only branch names with prefix
+  const branchList = branches
+    .map(branch => branch.name)
+    .filter(branch => branch.startsWith(prefix))
 
   console.log('getBranchMergeOrder - branchList: ', branchList)
 
-  branchList.sort((a, b) => isBiggerThan(semanticVersionToArray(a), semanticVersionToArray(b)) ? 1 : -1);
+  // sort based on branch ordering algorithm (https://confluence.atlassian.com/bitbucketserver/cascading-merge-776639993.html)
+  const orderedBranchList = bitbucketBranchOrderingAlgorithm(branchList, headBranch)
+
+  console.log('getBranchMergeOrder - orderedBranchList: ', orderedBranchList)
+
+  const headIndex = orderedBranchList.indexOf(headBranch)
+
+  // this shouldn't happen, but best to avoid any merges if it does
+  if (headIndex === -1) {
+    return []
+  }
 
   // return only the versions that are 'younger' than the PR version
-  if (branchList.length !== 0) {
-    while (branchList[0] !== headBranch) {
-      branchList.shift()
-    }
+  return orderedBranchList.slice(headIndex)
+}
+
+/**
+ * @function bitbucketBranchOrderingAlgorithm
+ * @description Algorithm copied from the {@link https://confluence.atlassian.com/bitbucketserver/cascading-merge-776639993.html bitbucket documentation} 
+ * 
+ * 1. Branches are selected and ordered on the basis of the name of the
+ *    branch that started the cascade (i.e. the target of the pull
+ *    request for the merge).
+ * 
+ * 2. Branch names are split into tokens using any of these characters:
+ *    underscore '_', hyphen '-', plus'+', or period '.'.
+ * 
+ * 3. Only branches matching the name of the pull request target are
+ *    added into the merge path. Matching means that every token before
+ *    the first numeric token must be equal to the corresponding tokens
+ *    of the target branch's name.
+ * 
+ * 4. Branches are ordered by number, if a given token is numeric. When
+ *    comparing a numeric token with an ASCII token, the numeric is
+ *    ranked higher (that is, it is considered as being a newer
+ *    version).
+ * 
+ * 5. If both tokens are non-numeric, a simple ASCII comparison is used
+ * 
+ * 6. In the unlikely case of the above algorithm resulting in equality
+ *    of 2 branch names, a simple string comparison is performed on the
+ *    whole branch name.
+ * 
+ * @param {string[]} branchList
+ * @param {string} targetBranch
+ * @returns The ordered branches for the cascade merge
+ */
+function bitbucketBranchOrderingAlgorithm(branchList, targetBranch) {
+  const branchPrefix = targetBranch.slice(0, targetBranch.match(/\d/)?.index);
+  if (!branchPrefix) {
+    return [];
   }
 
   return branchList
-}
+    // condition #1 and #3 - filtering
+    .filter(b => b.startsWith(branchPrefix))
+    // condition #2 - tokenize from / - + _ .
+    .map(b => ({
+      original: b,
+      tokenized: b.split(/[\/\-\+\_\.]/)
+    }))
+    // condition #4 and #5 and #6 - comparisons
+    .sort((a, b) => {
+      for (let i = 0; i < Math.max(a.tokenized.length, b.tokenized.length); i++) {
+        // skip if equivalent
+        if (a.tokenized[i] === b.tokenized[i]) {
+          continue
+        }
 
-/**
-* @function isBiggerThan
-* @description Compare the semantic versions v1 > v2 ?
-*
-* @param {number[]} v1
-* @param {number[]} v2
-* @returns {boolean} Returns true if v1 is greater than v2, otherwise false
-*/
-function isBiggerThan(v1, v2) {
-  for (let i = 0; i < Math.max(v1.length, v2.length); i++) {
-    const val1 = v1[i] || 0;
-    const val2 = v2[i] || 0;
-    if (val1 !== val2) {
-      return val1 > val2;
-    }
-  }
-  return false;
-}
-/**
-* @function semanticVersionToArray
-* @description Translate the 'string' type version to a 'number' type array
-*  Example
-*     input: "release/1.1-rc.1"
-*    output: [1,1,-1,1]
-*
-* @param vStr
-*/
-function semanticVersionToArray (vStr) {
-  // creating a 'lookup' table for the semantic versioning, to translate the 'release-name' to a number
-  // Use negative numbers to always come before 'final' releases
-  const preRelease = new Map()
-  preRelease.set('alpha', -3)
-  preRelease.set('beta', -2)
-  preRelease.set('rc', -1)
+        // handle release/2023 vs release/2023.05
+        if (i >= a.tokenized.length) {
+          return -1
+        } else if (i >= b.tokenized.length) {
+          return 1
+        }
 
-  // 1.1.rc.1
-  // "release/1.1-rc.1"  -->  ['1','1','rc','1']
-  const avTemp = vStr.split('/')[1].split(/_|\.|-/)
+        // actual comparison starts here
+        const numberA = parseInt(a.tokenized[i], 10)
+        const numberB = parseInt(b.tokenized[i], 10)
 
-  return avTemp.map((v) => {
-    if (preRelease.has(v)) {
-      return preRelease.get(v)
-    }
+        // condition #4
+        if (!isNaN(numberA)) {
+          if (!isNaN(numberB)) { // both numbers
+            return numberA - numberB
+          } else { // a is number, b is string
+            return -1
+          }
+        } else if (!isNaN(numberB)) { // a is string, b is number
+          return 1
+        }
 
-    if (isNaN(v)) {
-      return 0
-    }
+        // condition #5 - both strings
+        return a.tokenized[i] > b.tokenized[i] ? 1 : -1
+      }
 
-    return parseInt(v, 10);
-  })
+      // condition #6
+      return a.original > b.original ? 1 : -1
+    })
+    .map(b => b.original)
 }
 
 module.exports = {
