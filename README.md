@@ -1,9 +1,5 @@
 # Cascading Auto-Merge
 
-![Draft](./img/draft.png)
-
----
-
 This project is a GitHub implementation of a `Cascading Auto-Merge` feature
 similar to
 [Bitbuckets' Automatic branch merging](https://confluence.atlassian.com/bitbucketserver/automatic-branch-merging-776639993.html).
@@ -12,8 +8,6 @@ It auto-merges release branches based on
 
 The **Cascading Auto Merge** feature is applicable per repository, it can be
 enabled on branch prefixes and supports semantic versioning.
-
----
 
 ## Use Case
 
@@ -130,6 +124,40 @@ The action relies on the branch that opens the PR to remain in place so that the
 subsequent merges can still occur. The option to
 [automatically delete head branches](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-the-automatic-deletion-of-branches)
 must be deselected in order for the action to work properly.
+
+### Example Workflow
+
+```yaml
+---
+name: Automatic Branch Merging
+
+on:
+  pull_request:
+    types:
+      - closed
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  merge:
+    name: Cascading Auto Merge
+    runs-on: ubuntu-latest
+
+    if: |
+      github.event.pull_request.merged == true &&
+      startsWith(github.head_ref, 'release/')
+
+    steps:
+      - name: Automatic Merge
+        uses: ActionsDesk/cascading-downstream-merge@vX.Y.Z # Replace with the latest version
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prefixes: release/
+          refBranch: development
+```
 
 ### Protected Branches
 
