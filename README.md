@@ -116,7 +116,7 @@ oldest to newest.
 In the admin permissions for the organization or repository enable the option to
 [allow GitHub Actions to create and approve pull requests](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository#preventing-github-actions-from-creating-or-approving-pull-requests).
 
-This is needed in order to allow the GitHub action to create and open the PRs.
+This is needed in order to allow the GitHub Action to create and open the PRs.
 
 ### Disable the Automatic Branch Deletion
 

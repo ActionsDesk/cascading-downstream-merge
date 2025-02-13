@@ -1,6 +1,6 @@
 name: Cascading Auto-Merge Action
 description:
-  GitHub action to automatically merge downstream branches based on semantic
+  GitHub Action to automatically merge downstream branches based on semantic
   versioning
 
 branding:

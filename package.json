@@ -1,6 +1,6 @@
 {
   "name": "cascading-downstream-merge",
-  "description": "GitHub action to automatically merge downstream branches based on semantic versioning",
+  "description": "GitHub Action to automatically merge downstream branches based on semantic versioning",
   "version": "2.0.0",
   "author": "GitHub Expert Services",
   "type": "module",
