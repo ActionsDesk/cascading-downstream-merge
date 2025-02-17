@@ -156,7 +156,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prefixes: release/
-          refBranch: development
+          ref_branch: development
 ```
 
 ### Protected Branches
@@ -212,5 +212,5 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           merge_token: ${{ steps.token.outputs.token }}
           prefixes: release/
-          refBranch: development
+          ref_branch: development
 ```
