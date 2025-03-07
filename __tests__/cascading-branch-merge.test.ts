@@ -19,7 +19,7 @@ jest.unstable_mockModule('@octokit/rest', async () => {
   }
 })
 
-const automerge = await import('../src/cascading-branch-merge.js')
+const cascadingBranchMerge = await import('../src/cascading-branch-merge.js')
 
 const { Octokit } = await import('@octokit/rest')
 const mocktokit = jest.mocked(new Octokit())
@@ -28,17 +28,24 @@ describe('Cascading Branch Merge', () => {
   beforeEach(() => {
     mocktokit.paginate.mockReturnValue([
       { name: 'release/1.0' },
-      { name: 'release/1.2' },
+      { name: 'release/1.1-3' },
+      { name: 'release/1.1-rc1' },
+      { name: 'release/1.1-2' },
+      { name: 'release/1.1' },
+      { name: 'release/1.1-1' },
+      { name: 'release/1.2-a' },
+      { name: 'release/1.2-b' },
       { name: 'release/1.3' },
+      { name: 'release/2.0' },
       { name: 'develop' }
     ] as any)
 
     mocktokit.rest.pulls.create.mockResolvedValue({
-      data: { number: 13 }
+      data: { number: 1 }
     } as Endpoints['POST /repos/{owner}/{repo}/pulls']['response'])
 
     mocktokit.rest.issues.create.mockResolvedValue({
-      data: { number: 40 }
+      data: { number: 1 }
     } as Endpoints['POST /repos/{owner}/{repo}/issues']['response'])
   })
 
@@ -47,7 +54,7 @@ describe('Cascading Branch Merge', () => {
   })
 
   it('Performs a simple cascade', async () => {
-    await automerge.cascadingBranchMerge(
+    await cascadingBranchMerge.cascadingBranchMerge(
       ['release/'],
       'develop',
       'my-feature',
@@ -56,7 +63,7 @@ describe('Cascading Branch Merge', () => {
       github.context.repo.repo,
       mocktokit,
       mocktokit,
-      12,
+      1,
       github.context.actor
     )
 
@@ -68,37 +75,93 @@ describe('Cascading Branch Merge', () => {
       }
     )
 
-    expect(mocktokit.rest.pulls.create).toHaveBeenCalledTimes(3)
-    expect(mocktokit.rest.pulls.create).toHaveBeenCalledWith({
+    expect(mocktokit.rest.pulls.create).toHaveBeenCalledTimes(10)
+    expect(mocktokit.rest.pulls.create).toHaveBeenNthCalledWith(1, {
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
-      base: 'release/1.2',
+      base: 'release/1.1',
       head: 'release/1.0',
       title: expect.anything(),
       body: expect.anything()
     })
-    expect(mocktokit.rest.pulls.create).toHaveBeenCalledWith({
+    expect(mocktokit.rest.pulls.create).toHaveBeenNthCalledWith(2, {
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
-      base: 'release/1.3',
-      head: 'release/1.2',
+      base: 'release/1.1-1',
+      head: 'release/1.1',
       title: expect.anything(),
       body: expect.anything()
     })
-    expect(mocktokit.rest.pulls.create).toHaveBeenCalledWith({
+    expect(mocktokit.rest.pulls.create).toHaveBeenNthCalledWith(3, {
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
-      base: 'develop',
+      base: 'release/1.1-2',
+      head: 'release/1.1-1',
+      title: expect.anything(),
+      body: expect.anything()
+    })
+    expect(mocktokit.rest.pulls.create).toHaveBeenNthCalledWith(4, {
+      owner: github.context.repo.owner,
+      repo: github.context.repo.repo,
+      base: 'release/1.1-3',
+      head: 'release/1.1-2',
+      title: expect.anything(),
+      body: expect.anything()
+    })
+    expect(mocktokit.rest.pulls.create).toHaveBeenNthCalledWith(5, {
+      owner: github.context.repo.owner,
+      repo: github.context.repo.repo,
+      base: 'release/1.1-rc1',
+      head: 'release/1.1-3',
+      title: expect.anything(),
+      body: expect.anything()
+    })
+    expect(mocktokit.rest.pulls.create).toHaveBeenNthCalledWith(6, {
+      owner: github.context.repo.owner,
+      repo: github.context.repo.repo,
+      base: 'release/1.2-a',
+      head: 'release/1.1-rc1',
+      title: expect.anything(),
+      body: expect.anything()
+    })
+    expect(mocktokit.rest.pulls.create).toHaveBeenNthCalledWith(7, {
+      owner: github.context.repo.owner,
+      repo: github.context.repo.repo,
+      base: 'release/1.2-b',
+      head: 'release/1.2-a',
+      title: expect.anything(),
+      body: expect.anything()
+    })
+    expect(mocktokit.rest.pulls.create).toHaveBeenNthCalledWith(8, {
+      owner: github.context.repo.owner,
+      repo: github.context.repo.repo,
+      base: 'release/1.3',
+      head: 'release/1.2-b',
+      title: expect.anything(),
+      body: expect.anything()
+    })
+    expect(mocktokit.rest.pulls.create).toHaveBeenNthCalledWith(9, {
+      owner: github.context.repo.owner,
+      repo: github.context.repo.repo,
+      base: 'release/2.0',
       head: 'release/1.3',
       title: expect.anything(),
       body: expect.anything()
     })
+    expect(mocktokit.rest.pulls.create).toHaveBeenNthCalledWith(10, {
+      owner: github.context.repo.owner,
+      repo: github.context.repo.repo,
+      base: 'develop',
+      head: 'release/2.0',
+      title: expect.anything(),
+      body: expect.anything()
+    })
 
-    expect(mocktokit.rest.issues.createComment).toHaveBeenCalledTimes(4)
+    expect(mocktokit.rest.issues.createComment).toHaveBeenCalledTimes(11)
     expect(mocktokit.rest.issues.createComment).toHaveBeenCalledWith({
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
-      issue_number: 12,
+      issue_number: 1,
       body: ':white_check_mark: Auto-merge was successful.'
     })
 
@@ -106,7 +169,7 @@ describe('Cascading Branch Merge', () => {
   })
 
   it('Fixing a conflict continues the cascade', async () => {
-    await automerge.cascadingBranchMerge(
+    await cascadingBranchMerge.cascadingBranchMerge(
       ['release/'],
       'develop',
       'release/1.2',
@@ -115,7 +178,7 @@ describe('Cascading Branch Merge', () => {
       github.context.repo.repo,
       mocktokit,
       mocktokit,
-      12,
+      1,
       github.context.actor
     )
 
@@ -128,19 +191,19 @@ describe('Cascading Branch Merge', () => {
     )
 
     expect(mocktokit.rest.pulls.create).toHaveBeenCalledTimes(2)
-    expect(mocktokit.rest.pulls.create).toHaveBeenCalledWith({
+    expect(mocktokit.rest.pulls.create).toHaveBeenNthCalledWith(1, {
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
-      base: 'release/1.3',
-      head: 'release/1.2',
+      base: 'release/2.0',
+      head: 'release/1.3',
       title: expect.anything(),
       body: expect.anything()
     })
-    expect(mocktokit.rest.pulls.create).toHaveBeenCalledWith({
+    expect(mocktokit.rest.pulls.create).toHaveBeenNthCalledWith(2, {
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
       base: 'develop',
-      head: 'release/1.3',
+      head: 'release/2.0',
       title: expect.anything(),
       body: expect.anything()
     })
@@ -149,7 +212,7 @@ describe('Cascading Branch Merge', () => {
     expect(mocktokit.rest.issues.createComment).toHaveBeenCalledWith({
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
-      issue_number: 12,
+      issue_number: 1,
       body: ':white_check_mark: Auto-merge was successful.'
     })
 
@@ -165,7 +228,7 @@ describe('Cascading Branch Merge', () => {
           bar: 'baz'
         },
         headers: {
-          authorization: 'token secret123'
+          authorization: 'token secret13'
         }
       },
       response: {
@@ -185,48 +248,34 @@ describe('Cascading Branch Merge', () => {
       }
     })
 
-    mocktokit.rest.pulls.create
-      .mockReset()
-      .mockRejectedValueOnce(error)
-      .mockResolvedValueOnce({
-        data: { number: 13 }
-      } as Endpoints['POST /repos/{owner}/{repo}/pulls']['response'])
+    mocktokit.rest.pulls.create.mockRejectedValue(error)
 
-    await automerge.cascadingBranchMerge(
+    await cascadingBranchMerge.cascadingBranchMerge(
       ['release/'],
       'develop',
       'my-feature',
-      'release/1.2',
+      'release/2.0',
       github.context.repo.owner,
       github.context.repo.repo,
       mocktokit,
       mocktokit,
-      12,
+      1,
       github.context.actor
     )
 
-    expect(mocktokit.rest.pulls.create).toHaveBeenCalledTimes(2)
+    expect(mocktokit.rest.pulls.create).toHaveBeenCalledTimes(1)
     expect(mocktokit.rest.issues.createComment).toHaveBeenCalledWith({
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
-      issue_number: 12,
+      issue_number: 1,
       body: expect.stringMatching(/.*There are no commits between.*/)
     })
     expect(mocktokit.rest.issues.createComment).toHaveBeenCalledWith({
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
-      issue_number: 12,
-      body: expect.stringMatching(/.*Created cascading Auto-Merge.*/)
-    })
-    expect(mocktokit.rest.issues.createComment).toHaveBeenCalledWith({
-      owner: github.context.repo.owner,
-      repo: github.context.repo.repo,
-      issue_number: 12,
+      issue_number: 1,
       body: ':white_check_mark: Auto-merge was successful.'
     })
-
-    expect(mocktokit.rest.pulls.create).toHaveBeenCalledTimes(2)
-
     expect(mocktokit.rest.issues.create).not.toHaveBeenCalled()
   })
 
@@ -239,7 +288,7 @@ describe('Cascading Branch Merge', () => {
           bar: 'baz'
         },
         headers: {
-          authorization: 'token secret123'
+          authorization: 'token secret13'
         }
       },
       response: {
@@ -261,7 +310,7 @@ describe('Cascading Branch Merge', () => {
 
     mocktokit.rest.pulls.create.mockRejectedValue(error)
 
-    await automerge.cascadingBranchMerge(
+    await cascadingBranchMerge.cascadingBranchMerge(
       ['release/'],
       'develop',
       'my-feature',
@@ -270,7 +319,7 @@ describe('Cascading Branch Merge', () => {
       github.context.repo.repo,
       mocktokit,
       mocktokit,
-      12,
+      1,
       github.context.actor
     )
 
@@ -279,13 +328,13 @@ describe('Cascading Branch Merge', () => {
     expect(mocktokit.rest.issues.createComment).toHaveBeenCalledWith({
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
-      issue_number: 12,
+      issue_number: 1,
       body: expect.stringMatching(/.*already a pull request open/)
     })
     expect(mocktokit.rest.issues.createComment).toHaveBeenCalledWith({
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
-      issue_number: 12,
+      issue_number: 1,
       body: ':bangbang: Auto-merge action did not complete successfully. Please review issues.'
     })
 
@@ -301,7 +350,7 @@ describe('Cascading Branch Merge', () => {
           bar: 'baz'
         },
         headers: {
-          authorization: 'token secret123'
+          authorization: 'token secret13'
         }
       },
       response: {
@@ -323,7 +372,7 @@ describe('Cascading Branch Merge', () => {
 
     mocktokit.rest.pulls.create.mockRejectedValue(error)
 
-    await automerge.cascadingBranchMerge(
+    await cascadingBranchMerge.cascadingBranchMerge(
       ['release/'],
       'develop',
       'my-feature',
@@ -332,7 +381,7 @@ describe('Cascading Branch Merge', () => {
       github.context.repo.repo,
       mocktokit,
       mocktokit,
-      12,
+      1,
       'handle'
     )
 
@@ -348,13 +397,13 @@ describe('Cascading Branch Merge', () => {
     expect(mocktokit.rest.issues.createComment).toHaveBeenCalledWith({
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
-      issue_number: 12,
+      issue_number: 1,
       body: expect.stringMatching(/.*encountered an issue.*/)
     })
     expect(mocktokit.rest.issues.createComment).toHaveBeenCalledWith({
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
-      issue_number: 12,
+      issue_number: 1,
       body: ':bangbang: Auto-merge action did not complete successfully. Please review issues.'
     })
 
@@ -370,7 +419,7 @@ describe('Cascading Branch Merge', () => {
           bar: 'baz'
         },
         headers: {
-          authorization: 'token secret123'
+          authorization: 'token secret13'
         }
       },
       response: {
@@ -396,7 +445,7 @@ describe('Cascading Branch Merge', () => {
       data: { number: 13 }
     } as Endpoints['POST /repos/{owner}/{repo}/pulls']['response'])
 
-    await automerge.cascadingBranchMerge(
+    await cascadingBranchMerge.cascadingBranchMerge(
       ['release/'],
       'develop',
       'my-feature',
@@ -405,7 +454,7 @@ describe('Cascading Branch Merge', () => {
       github.context.repo.repo,
       mocktokit,
       mocktokit,
-      12,
+      1,
       'handle'
     )
 
@@ -421,7 +470,7 @@ describe('Cascading Branch Merge', () => {
     expect(mocktokit.rest.issues.createComment).toHaveBeenCalledWith({
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
-      issue_number: 12,
+      issue_number: 1,
       body: expect.stringMatching(
         /.*Could not auto merge PR #13 due to merge conflicts.*/
       )
@@ -429,7 +478,7 @@ describe('Cascading Branch Merge', () => {
     expect(mocktokit.rest.issues.createComment).toHaveBeenCalledWith({
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
-      issue_number: 12,
+      issue_number: 1,
       body: ':bangbang: Auto-merge action did not complete successfully. Please review issues.'
     })
 
@@ -447,7 +496,7 @@ describe('Cascading Branch Merge', () => {
           bar: 'baz'
         },
         headers: {
-          authorization: 'token secret123'
+          authorization: 'token secret13'
         }
       },
       response: {
@@ -469,7 +518,7 @@ describe('Cascading Branch Merge', () => {
 
     mocktokit.rest.pulls.merge.mockRejectedValue(error)
 
-    await automerge.cascadingBranchMerge(
+    await cascadingBranchMerge.cascadingBranchMerge(
       ['release/'],
       'develop',
       'my-feature',
@@ -478,7 +527,7 @@ describe('Cascading Branch Merge', () => {
       github.context.repo.repo,
       mocktokit,
       mocktokit,
-      12,
+      1,
       'handle'
     )
 
@@ -494,118 +543,16 @@ describe('Cascading Branch Merge', () => {
     expect(mocktokit.rest.issues.createComment).toHaveBeenCalledWith({
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
-      issue_number: 12,
+      issue_number: 1,
       body: expect.any(String)
     })
     expect(mocktokit.rest.issues.createComment).toHaveBeenCalledWith({
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
-      issue_number: 12,
+      issue_number: 1,
       body: ':bangbang: Auto-merge action did not complete successfully. Please review issues.'
     })
 
     expect(mocktokit.rest.pulls.create).toHaveBeenCalledTimes(1)
-  })
-
-  it('getBranchMergeOrder returns ordered branches ignoring non-matching prefix', () => {
-    const response = automerge.getBranchMergeOrder(
-      'release/',
-      'release/2022.02',
-      [
-        { name: 'release/2022.02' } as any,
-        { name: 'feature/10.2' } as any,
-        { name: 'release/2022.01' } as any,
-        { name: 'release/2022.02.4' } as any,
-        { name: 'release/2022.05' } as any,
-        { name: 'release/2023.05' } as any,
-        { name: 'release-123' } as any
-      ]
-    )
-
-    expect(response).toEqual([
-      'release/2022.02',
-      'release/2022.02.4',
-      'release/2022.05',
-      'release/2023.05'
-    ])
-  })
-
-  it('getBranchMergeOrder no prefix matches returns an empty list', () => {
-    const response = automerge.getBranchMergeOrder('release/', 'develop', [
-      { name: 'feature/10.2' } as any,
-      { name: 'develop' } as any
-    ])
-
-    expect(response).toEqual([])
-  })
-
-  it('getBranchMergeOrder returns ordered branches with semantic year branch name with underscore', () => {
-    const response = automerge.getBranchMergeOrder(
-      'release/',
-      'release/2022_06',
-      [
-        { name: 'release/2022_02' } as any,
-        { name: 'release/2022_02_4' } as any,
-        { name: 'release/2022_05' } as any,
-        { name: 'release/2022_07' } as any,
-        { name: 'release/2022_06' } as any,
-        { name: 'release/2023_05' } as any
-      ]
-    )
-
-    expect(response).toEqual([
-      'release/2022_06',
-      'release/2022_07',
-      'release/2023_05'
-    ])
-  })
-
-  it('getBranchMergeOrder returns ordered branches with semantic year branch name with underscore or periods', () => {
-    const response = automerge.getBranchMergeOrder(
-      'release/',
-      'release/2022_06',
-      [
-        { name: 'release/2023_05' } as any,
-        { name: 'release/2022_05' } as any,
-        { name: 'release/2022_07' } as any,
-        { name: 'release/2022_02_4' } as any,
-        { name: 'release/2022_02' } as any,
-        { name: 'release/2022_06' } as any,
-        { name: 'release/2022.08' } as any
-      ]
-    )
-
-    expect(response).toEqual([
-      'release/2022_06',
-      'release/2022_07',
-      'release/2022.08',
-      'release/2023_05'
-    ])
-  })
-  it('getBranchMergeOrder returns ordered branches with semantic year branch name with underscore and periods', () => {
-    const response = automerge.getBranchMergeOrder(
-      'release/',
-      'release/2022_04.2',
-      [
-        { name: 'release/2022_05.2' } as any,
-        { name: 'release/2022_07' } as any,
-        { name: 'release/2022_04.4' } as any,
-        { name: 'release/2022_03.2' } as any,
-        { name: 'release/2022_04.3.1' } as any,
-        { name: 'release/2022_04.2' } as any,
-        { name: 'release/2022_06' } as any,
-        { name: 'release/2022_08' } as any
-      ]
-    )
-
-    expect(response).toEqual([
-      'release/2022_04.2',
-      'release/2022_04.3.1',
-      'release/2022_04.4',
-      'release/2022_05.2',
-      'release/2022_06',
-      'release/2022_07',
-      'release/2022_08'
-    ])
   })
 })

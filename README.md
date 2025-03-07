@@ -9,6 +9,14 @@ It auto-merges release branches based on
 The **Cascading Auto Merge** feature is applicable per repository, it can be
 enabled on branch prefixes and supports semantic versioning.
 
+## Changelog
+
+### Version 3.0.0
+
+As of version 3.0.0, the action has been updated to use Bitbucket's branch
+ordering algorithm as described
+[here](https://confluence.atlassian.com/bitbucketserver/cascading-merge-776639993.html).
+
 ## Use Case
 
 Suppose an organization has the following release branch structure in their

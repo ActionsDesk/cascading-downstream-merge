@@ -34692,8 +34692,8 @@ const Octokit = Octokit$1.plugin(requestLog, legacyRestEndpointMethods, paginate
  *
  * @param prefixes The prefixes to filter branches by.
  * @param refBranch The branch to merge into the head branch.
- * @param headBranch The head branch to merge from.
- * @param baseBranch The base branch to merge into.
+ * @param headBranch The head branch to merge from (e.g. feature/abc123).
+ * @param baseBranch The base branch to merge into (e.g. release/2022.05.04).
  * @param owner The owner of the repository.
  * @param repo The repository name.
  * @param octokit The octokit instance.
@@ -34857,89 +34857,84 @@ async function cascadingBranchMerge(prefixes, refBranch, headBranch, baseBranch,
  * @returns The ordered list of branches.
  */
 function getBranchMergeOrder(prefix, headBranch, branches) {
-    const branchList = branches
+    const branchList = bitbucketBranchOrderingAlgorithm(branches
         .filter((branch) => branch.name.startsWith(prefix))
-        .map((branch) => branch.name);
+        .map((branch) => branch.name), headBranch);
     coreExports.info(`[getBranchMergeOrder] branchList: ${branchList}`);
-    branchList.sort((a, b) => isBiggerThan(semanticVersionToArray(a), semanticVersionToArray(b)));
     // Return only the versions that are 'younger' than the PR version.
-    if (branchList.length !== 0)
-        while (branchList[0] !== headBranch)
-            branchList.shift();
-    return branchList;
+    const headIndex = branchList.indexOf(headBranch);
+    return branchList.slice(headIndex);
 }
 /**
- * Compares the semantic versions of two branches.
+ * Bitbucket branch ordering algorithm.
  *
- * @param v1 The first version.
- * @param v2 The second version.
- * @returns A negative value if v1 is before (smaller than) v2, a positive value
- *          if v1 is after (bigger than) v2, or 0 if they are equal.
+ * See: https://confluence.atlassian.com/bitbucketserver/cascading-merge-776639993.html
+ *
+ * @param branchList The list of branches to order.
+ * @param targetBranch The target branch to merge into.
+ * @returns The ordered branches for the cascade merge.
  */
-function isBiggerThan(v1, v2) {
-    // Semantic versions have 5 "parts": major, minor, patch, pre-release, build.
-    // Each should be compared in order.
-    for (let i = 0; i < 5; i++) {
-        if (v1[i] === v2[i])
-            continue; // This part is equal
-        else if (v1[i] > v2[i])
-            return 1; // v1 is bigger
-        else
-            return -1; // v2 is bigger
-    }
+function bitbucketBranchOrderingAlgorithm(branchList, targetBranch) {
+    const branchPrefix = targetBranch.slice(0, targetBranch.match(/\d/)?.index);
     /* istanbul ignore next */
-    return 0;
-}
-/**
- * Translates the version string to an array of numbers, dropping any
- * non-numeric parts.
- *
- * E.g., "release/1.1-rc.1" -> [1,1,0,3,1]
- *
- * @param vStr The version string.
- * @returns The version as an array of numbers.
- */
-function semanticVersionToArray(vStr) {
-    // Creating a 'lookup' map of semantic version prerelease prefixes.
-    const preRelease = {
-        alpha: 1,
-        beta: 2,
-        rc: 3
-    };
-    const av = [];
-    // 1.1.rc.1
-    // "release/1.1-rc.1"  -->  ['1','1-rc','1']
-    const avTemp = vStr.split('/')[1].split(/_|\./);
-    /* istanbul ignore next */
-    avTemp.forEach(function (v, index) {
-        // Check if the version contains a prerelease tag.
-        if (v.includes('-')) {
-            const vTemp = v.split('-');
-            if (index === 1) {
-                // Short version - 1.1-rc
-                av.splice(index, 1, parseInt(vTemp[0], 10));
-                av.splice(index + 1, 1, 0);
-                av.splice(index + 2, 0, preRelease[vTemp[1]]);
-            }
-            else {
-                // Full version - 1.1.0-rc
-                av.splice(index, 1, parseInt(vTemp[0], 10));
-                av.splice(index + 1, 0, preRelease[vTemp[1]]);
-            }
+    if (!branchPrefix)
+        return [];
+    return (branchList
+        // - Branches are selected and ordered on the basis of the name of the
+        //   branch that started the cascade (i.e. the target of the pull request
+        //   for the merge).
+        // - Only branches matching the name of the pull request target are added
+        //   into the merge path. Matching means that every token before the first
+        //   numeric token must be equal to the corresponding tokens of the target
+        //   branch's name.
+        .filter((b) => b.startsWith(branchPrefix))
+        // - Branch names are split into tokens using any of these characters:
+        //   underscore '_', hyphen  '-', plus '+', or period '.'.
+        .map((b) => ({
+        original: b,
+        tokenized: b.split(/[/\-+_.]/)
+    }))
+        .sort((a, b) => {
+        for (let i = 0; i < Math.max(a.tokenized.length, b.tokenized.length); i++) {
+            // Skip if equivalent.
+            if (a.tokenized[i] === b.tokenized[i])
+                continue;
+            // The a version should come first.
+            if (i >= a.tokenized.length)
+                return -1;
+            // The b version should come first.
+            else if (i >= b.tokenized.length)
+                return 1;
+            // actual comparison starts here
+            const numberA = parseInt(a.tokenized[i], 10);
+            const numberB = parseInt(b.tokenized[i], 10);
+            // - Branches are ordered by number, if a given token is numeric. When
+            //   comparing a numeric token with an ASCII token, the numeric is
+            //   ranked higher (that is, it is considered as being a newer
+            //   version).
+            if (!isNaN(numberA))
+                if (!isNaN(numberB))
+                    // Both are numbers. Compare directly.
+                    return numberA - numberB;
+                else
+                    // Only a is number, so it comes first.
+                    return -1;
+            else if (!isNaN(numberB))
+                // Only b is number, so it comes first.
+                return 1;
+            // - If both tokens are non-numeric, a simple ASCII comparison is
+            //   used.
+            /* istanbul ignore next */
+            return a.tokenized[i] > b.tokenized[i] ? 1 : -1;
         }
-        else {
-            av.push(parseInt(v));
-        }
-    });
-    // Make sure the length is 5. This can be shorter if there is no prerelease or
-    // build number in the version.
-    if (av.length < 3)
-        av[2] = 0; // No patch
-    if (av.length < 4)
-        av[3] = 0; // No prerelease
-    if (av.length < 5)
-        av[4] = 0; // No build number
-    return av;
+        // - In the unlikely case of the above algorithm resulting in equality
+        //   of 2 branch names, a simple string comparison is performed on the
+        //   whole branch name.
+        /* istanbul ignore next */
+        return a.original > b.original ? 1 : -1;
+    })
+        // Convert back to list of strings.
+        .map((b) => b.original));
 }
 
 async function run() {
