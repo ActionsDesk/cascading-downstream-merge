@@ -179,8 +179,12 @@ Therefore you'll need to create a
 [Machine User](https://docs.github.com/en/developers/overview/managing-deploy-keys#machine-users)
 with Admin access or a
 [custom GitHub App](https://docs.github.com/en/developers/apps/building-github-apps/creating-a-github-app)
-that only needs read/write for the contents permissions. Than either of these
-can be used in the selected option to
+with the following permissions:
+
+- Repository Contents: Read & Write
+- Pull Requests: Read & Write
+
+Either of these can be used in the selected option to
 [allow specified actors to bypass required pull requests](https://github.blog/changelog/2021-11-19-allow-bypassing-required-pull-requests/).
 
 ```yml
@@ -208,7 +212,7 @@ jobs:
     steps:
       - name: Get GitHub App Token
         id: token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.CUSTOM_APP_ID }}
           private-key: ${{ secrets.CUSTOM_APP_PEM_FILE }}
