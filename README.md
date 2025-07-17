@@ -35,7 +35,7 @@ Repository.
 | release/2.0.1-beta   |
 | release/2.0.1-beta.1 |
 
-A developer creates a new branch from the `release/1.1` branch, makes their change. and issues a pull request
+A developer creates a new branch from the `release/1.1` branch, makes their change, and issues a pull request
 (PR) against the `release/1.1` branch, requesting at least one approval. The
 following should happen when the PR is approved:
 
