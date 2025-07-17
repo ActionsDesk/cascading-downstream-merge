@@ -39,7 +39,7 @@ A developer creates a new branch from the `release/1.1` branch, makes their chan
 (PR) against the `release/1.1` branch, requesting at least one approval. The
 following should happen when the PR is approved:
 
-1. The developers branch is merged into `release/1.1`
+1. The developer's branch is merged into `release/1.1`
 1. `release/1.1` is merged into all **subsequent** releases based on their
    semantic version
 1. After the last branch named with a semantic version has been merged, the change is also merged to the `development` branch
