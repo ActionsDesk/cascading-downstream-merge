@@ -16,9 +16,9 @@ export async function run() {
     github.context.payload.pull_request &&
     github.context.payload.pull_request.merged
   ) {
-    const octokit = new Octokit({ auth: githubToken })
+    const octokit = new Octokit({ auth: githubToken, baseUrl: github.context.apiUrl })
     const mergeOctokit =
-      mergeToken !== '' ? new Octokit({ auth: mergeToken }) : octokit
+      mergeToken !== '' ? new Octokit({ auth: mergeToken, baseUrl: github.context.apiUrl }) : octokit
 
     core.info(`PR Number: ${github.context.payload.pull_request.number}`)
     core.info(`Head Branch: ${github.context.payload.pull_request.head.ref}`)
