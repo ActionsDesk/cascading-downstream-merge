@@ -14,8 +14,8 @@ enabled on branch prefixes and supports semantic versioning.
 ### Version 3.0.0
 
 As of version 3.0.0, the action has been updated to use Bitbucket's branch
-ordering algorithm as described
-[here](https://confluence.atlassian.com/bitbucketserver/cascading-merge-776639993.html).
+ordering algorithm as described in the
+[Atlassian documentation](https://confluence.atlassian.com/bitbucketserver/cascading-merge-776639993.html).
 
 ## Use Case
 
