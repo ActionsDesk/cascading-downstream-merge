@@ -35,13 +35,16 @@ Repository.
 | release/2.0.1-beta   |
 | release/2.0.1-beta.1 |
 
-A developer makes a change to the `release/1.1` branch and issues a pull request
-(PR) against the `development` branch, requesting at least one approval. The
-following should happen when the PR is approved:
+A developer creates a new branch from the `release/1.1` branch, makes their
+change, and issues a pull request (PR) against the `release/1.1` branch,
+requesting at least one approval. The following should happen when the PR is
+approved:
 
-1. `release/1.1` is merged into `development`
+1. The developer's branch is merged into `release/1.1`
 1. `release/1.1` is merged into all **subsequent** releases based on their
    semantic version
+1. After the last branch named with a semantic version has been merged, the
+   change is also merged to the `development` branch
 
 This sample output should demonstrate the expected GitHub behaviour:
 
@@ -156,7 +159,7 @@ jobs:
 
     if: |
       github.event.pull_request.merged == true &&
-      startsWith(github.head_ref, 'release/')
+      startsWith(github.base_ref, 'release/')
 
     steps:
       - name: Automatic Merge
@@ -207,7 +210,7 @@ jobs:
 
     if: |
       github.event.pull_request.merged == true &&
-      startsWith(github.head_ref, 'release/')
+      startsWith(github.base_ref, 'release/')
 
     steps:
       - name: Get GitHub App Token
