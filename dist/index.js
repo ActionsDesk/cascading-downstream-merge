@@ -34946,8 +34946,13 @@ async function run() {
     coreExports.info(`Ref Branch: ${refBranch}`);
     if (githubExports.context.payload.pull_request &&
         githubExports.context.payload.pull_request.merged) {
-        const octokit = new Octokit({ auth: githubToken });
-        const mergeOctokit = mergeToken !== '' ? new Octokit({ auth: mergeToken }) : octokit;
+        const octokit = new Octokit({
+            auth: githubToken,
+            baseUrl: githubExports.context.apiUrl
+        });
+        const mergeOctokit = mergeToken !== ''
+            ? new Octokit({ auth: mergeToken, baseUrl: githubExports.context.apiUrl })
+            : octokit;
         coreExports.info(`PR Number: ${githubExports.context.payload.pull_request.number}`);
         coreExports.info(`Head Branch: ${githubExports.context.payload.pull_request.head.ref}`);
         coreExports.info(`Base Branch: ${githubExports.context.payload.pull_request.base.ref}`);
