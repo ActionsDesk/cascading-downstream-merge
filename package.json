@@ -47,7 +47,7 @@
     "@eslint/compat": "^1.4.0",
     "@github/local-action": "^3.2.1",
     "@jest/globals": "^29.7.0",
-    "@octokit/request-error": "^6.1.8",
+    "@octokit/request-error": "^7.0.0",
     "@octokit/types": "^14.0.0",
     "@rollup/plugin-commonjs": "^28.0.6",
     "@rollup/plugin-node-resolve": "^16.0.2",
