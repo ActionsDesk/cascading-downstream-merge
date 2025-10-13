@@ -45,7 +45,7 @@
   },
   "devDependencies": {
     "@eslint/compat": "^1.4.0",
-    "@github/local-action": "^3.2.1",
+    "@github/local-action": "^6.0.0",
     "@jest/globals": "^29.7.0",
     "@octokit/request-error": "^7.0.0",
     "@octokit/types": "^14.0.0",
